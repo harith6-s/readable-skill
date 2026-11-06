@@ -17,10 +17,14 @@ Per entrypoint:  a function nothing in the unit calls, or a public function.
                  standard library, objects made from those, and .save() .delete() .delay() .apply_async() .send()
 Per class:       inheritance (project ancestor layers; framework bases do not count), state_across (`self.x` set in a
                  method other than __init__ and read in another), from_ancestors, defined_elsewhere.
+Layout:          jumps inside one file. A top-level function called from its own file must sit directly below its
+                 only caller there; functions in shared.py never call each other; an __init__.py of a target folder
+                 holds no code and re-exports nothing (no facade).
 
 Options:
     --check            exit 1 unless every local_depth <= 1, inheritance <= 1, no state_across, every hidden import
-                       has a reason comment, and no --forbid module is imported
+                       has a reason comment, no --forbid module is imported, and the layout has no problem.
+                       Run it on the original too: what it lists is what is wrong now
     --forbid MODULE    a module the unit must not import, such as the old code for a V2 (repeatable)
     --public-from MODULE  also count as public the names production code imports from MODULE: a V2 that nobody
                        imports yet keeps the old code's public surface (repeatable; scans --usage, else --root)
@@ -82,7 +86,7 @@ def module_file(name, root):
 
 
 def is_constant_name(name):
-    """MIS_URL, REQNO: an imported constant, not something that runs (parity.py stubs these as text)."""
+    """BASE_URL, TOKEN: an imported constant, not something that runs (parity.py gives it its value or text)."""
     return name.isupper() and (len(name) >= 4 or "_" in name)
 
 
@@ -508,6 +512,57 @@ def similar(unit, folder, root):
     return sorted(matches, key=lambda match: (match["function"], -match["ratio"]))
 
 
+def same_file_jumps(unit):
+    """A top-level function called from its own file sits directly below its only caller there (between them only
+    other helpers of that caller), so a reader jumps down a few lines and back. A helper with two callers in the
+    file goes into shared.py, whose functions never call each other. Calls from other files do not count here."""
+    found = []
+    for module, info in unit.modules.items():
+        order = [key for _, key in sorted((data["line"], key) for key, data in unit.defs.items()
+                                          if data["module"] == module and "." not in key.split(":", 1)[1])]
+        callers = {key: [] for key in order}
+        for key in order:
+            for target in sorted(unit.defs[key]["calls"]):
+                if target in callers and target != key:
+                    callers[target].append(key)
+        for target, by in callers.items():
+            if not by:
+                continue
+            name, where = target.split(":", 1)[1], f"{info['shown']}:{unit.defs[target]['line']}"
+            names = ", ".join(key.split(":", 1)[1] for key in by)
+            if Path(info["file"]).stem == "shared":
+                found.append(f"{where} {name} is called by {names} in shared.py: its functions never call each other")
+            elif len(by) > 1:
+                found.append(f"{where} {name} is called by {names} in its own file: move it to shared.py")
+            else:
+                start, end = order.index(by[0]), order.index(target)
+                if end < start or any(callers[key] != by for key in order[start + 1:end]):
+                    found.append(f"{where} {name} is not directly below its caller {names}: "
+                                 f"place it right under it, or move it to shared.py")
+    return found
+
+
+def facades(paths, root):
+    """An __init__.py of a target folder that holds code or re-exports the package: callers must import from the
+    task files themselves."""
+    found = []
+    for raw in paths:
+        folder = Path(raw)
+        if not folder.is_dir():
+            continue
+        for init in sorted(folder.rglob("__init__.py")):
+            package = module_name(init, root)
+            for node in ast.parse(init.read_text(encoding="utf-8")).body:
+                source = (resolve_relative(node.module, node.level, package + ".__init__")
+                          if isinstance(node, ast.ImportFrom) else "")
+                if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                        or source == package or source.startswith(package + ".")):
+                    found.append(f"{shown_path(init, root)}:{node.lineno} __init__.py holds code or re-exports "
+                                 f"(a facade): callers import from the task files")
+                    break
+    return found
+
+
 def violations(report, forbid_hits):
     found = [f"local_depth {entry['local_depth']} > 1: {entry['entrypoint']}"
              for entry in report["entrypoints"] if entry["local_depth"] > 1]
@@ -518,6 +573,7 @@ def violations(report, forbid_hits):
     found += [f"import inside a function without a reason comment: {module['shown']}:{item['line']} {item['import']}"
               for module in report["modules"] for item in module["hidden_imports"] if not item["reason"]]
     found += [f"imports forbidden module {source}: {shown}:{line}" for shown, line, source in forbid_hits]
+    found += [f"layout: {problem}" for problem in report["layout"]]
     return found
 
 
@@ -599,6 +655,7 @@ def main():
     forbid_hits.sort()
     if args.similar:
         report["similar"] = similar(unit, Path(args.similar), root)
+    report["layout"] = same_file_jumps(unit) + facades(args.paths, root)
     report["summary"] = {
         "functions": sum(m["functions"] for m in report["modules"]),
         "hidden_imports": sum(len(m["hidden_imports"]) for m in report["modules"]),
@@ -607,6 +664,7 @@ def main():
         "max_inheritance": max((c["inheritance"] for c in report["classes"]), default=0),
         "state_across": sum(len(c["state_across"]) for c in report["classes"]),
         "outbound_sites": len(report["outbound"]),
+        "layout_problems": len(report["layout"]),
     }
     report["violations"] = violations(report, forbid_hits)
 
@@ -640,6 +698,8 @@ def main():
         for match in report.get("similar", []):
             print(f"similar: {match['function']} looks like {match['looks_like']} {match['name']} "
                   f"({match['ratio']})")
+        for problem in report["layout"]:
+            print(f"layout: {problem}")
         print("summary:", report["summary"])
         if args.check:
             print("check:", "OK" if not report["violations"] else "FAILED")

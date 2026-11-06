@@ -35,9 +35,16 @@ A reader follows one request or task from its entry point to its end, top to bot
 
 ## File layout (`layout`)
 
-- `A` (default): one file per entry point or task, the story, plus one private sibling module that holds its leaf helpers, so the two can be read side by side. Public entry points come first, the rest in call order.
+- `A` (default): one file per task. A task is one step of the business flow, with every entry point that only starts or queues it (see the Map step in `SKILL.md`). A unit with one task keeps the original file name for its story. Inside a task file, public entry points come first. A helper with one caller in the file sits directly below that caller, so the reader jumps down a few lines and comes back.
 - `B`: one file per product (a document, a message, a payload type) holding its builder.
 - `AB`: task files as in A, whose steps call the product builders of B, one level deep.
+
+In every layout:
+- **`shared.py`**, one per package, holds what several places use: a helper with two or more callers, and a leaf that other files call. Its functions never call each other, so a reader who jumps there lands on code with nothing behind it. Other languages use the same name (`shared.ts`, `shared.go`).
+- **Short does not mean shared.** A function that decides (raises, picks the next step, writes) is a story and lives in its task file, however short it is. `shared.py` holds only leaves.
+- **No facade.** `__init__.py` (or `index.ts`) holds no code and re-exports nothing. Callers import each name from its own file, so "go to definition" lands on the code.
+- **Split only to cut jumps.** Giving each task its own file cuts what a reader must skip. Splitting one task across files adds jumps: do it only for the product builders of `B` and `AB`.
+- **Code with no caller** stays in its task file, or in `shared.py` when no task owns it, pinned as `PIN(behavior): no caller found`.
 
 ## Class or function (`style=auto`)
 
@@ -58,9 +65,9 @@ Languages without classes follow the same idea. In Go, use methods on a struct o
 |---|---|
 | Used once, wraps a few lines | Inline it as a numbered step |
 | Calls another unit-local helper | Inline it, or fold what it calls into it |
-| Takes a flag or mode and branches on it | Inline each branch into its caller |
-| Pure computation or formatting, 2+ callers, its name says it all | Keep it as a private leaf |
-| The same chunk copied in 2+ places | Merge the part that behaves the same into one private leaf that returns a result. The story keeps the raise. |
+| Takes a flag or mode and branches on it | Inline it into each caller with every branch: a flag that caller never passes becomes a local variable set to its default, with its branch kept and pinned |
+| Pure computation or formatting, 2+ callers, its name says it all | Keep it as a leaf in `shared.py` |
+| The same chunk copied in 2+ places | Merge the part that behaves the same into one leaf that returns a result: directly below its caller when all the copies are in one function, otherwise in `shared.py`. The story keeps the raise. |
 | Builds part of a payload | Inline it into the payload literal |
 | A condition function passed as an argument (`publish(..., waiting)`) | Pass the value instead, or inline the check |
 

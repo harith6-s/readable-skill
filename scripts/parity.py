@@ -23,7 +23,10 @@ scenarios.py
           invoice = h.obj("invoice", id=7, number="INV-7")
           return h.unit.send_invoice(h.obj("user", username="u1"), h.obj("customer"), invoice)
 
-  h.unit               the first --unit module (h.modules["dotted.name"] for the others); imported on first use
+  h.unit               the unit's names wherever they live: every --unit module is searched in order, and the one
+                       that defines a name wins over one that only imports it. So one scenarios.py drives the original
+                       and a rewrite split into task files (give each file as its own --unit). h.modules["dotted.name"]
+                       is one module. Imported on first use
   h.stub(path)         configure what a stub does. A path is the import path, then attribute and call steps:
                        "requests.post", "billing.client.ApiSession().post", "billing.models.Invoice.objects.get",
                        "obj:contract.save". fnmatch wildcards work ("*.objects.filter().first").
@@ -31,6 +34,9 @@ scenarios.py
                          .raises(error)          an exception instance, e.g. h.timeout() or ValueError("bad")
                          .answers(fn)            fn(*args, **kwargs) decides
                          .iterates([...])        what `for x in stub` yields (default: nothing)
+                         .pure()                 its calls are not recorded: pure computation such as formatting
+                                                 a date, where calling it once more or less is not behavior. It
+                                                 still returns what is set above (default: a stub)
   h.const(path, value) what an imported name or attribute *is*, e.g. a settings dict; set it before h.unit is used
   h.obj(label, **attrs) a stand-in object; attribute writes and calls on it are recorded ("obj:label.attr").
                        Any attribute it was not given is a stub, so hasattr() is always true.
@@ -42,8 +48,11 @@ scenarios.py
 
   How stubs behave:
   - A stubbed name in CapWords is a class: it can be raised and caught (`except CustomException`), subclassed, and
-    calling it returns an instance whose attributes are the keyword arguments given. A name in ALL_CAPS is text
-    ("<application.os_api.MIS_URL>") that can also be called. Anything else is a callable stub.
+    calling it returns an instance whose attributes are the keyword arguments given. A module-level name in
+    ALL_CAPS takes its literal value from the project's source when it has one (read with ast; the module never
+    runs), so turning a literal into a named constant changes nothing. Otherwise, such as a value from settings or
+    the environment, it is text ("<billing.client.BASE_URL>") that can also be called. Real values end up in the
+    recording, so keep recordings out of public places. Anything else is a callable stub.
   - An unconfigured call returns another stub, so chains such as Model.objects.filter(...).first() work.
     A stub never raises unless told: give a helper that always raises (a fail() helper) .raises(...).
   - A scenario that breaks outside the unit (a typo, a wrong harness call) stops the recording. Only an error the
@@ -64,6 +73,7 @@ coverage  lists the outbound call sites of the map that no scenario reached. Exi
 """
 
 import argparse
+import ast
 import copy
 import datetime as _datetime
 import fnmatch
@@ -88,10 +98,36 @@ TRACEBACK = re.compile(r"Traceback \(most recent call last\):\n(?:[ \t].*(?:\n|$
 ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
 TIME_TYPES = (_datetime.date, _datetime.time, _datetime.timedelta)    # the real classes, kept before freeze()
 dumps = json.dumps
+NO_VALUE = object()
+TREES = {}
 
 
 def is_constant_name(name):
     return name.isupper() and (len(name) >= 4 or "_" in name)
+
+
+def source_constant(root, path):
+    """The literal value of a module-level constant in a project file ("pkg.module.NAME"), or NO_VALUE."""
+    module, _, name = path.rpartition(".")
+    base = root.joinpath(*module.split("."))
+    file = next((candidate for candidate in (base.with_suffix(".py"), base / "__init__.py") if candidate.is_file()),
+                None)
+    if file is None:
+        return NO_VALUE
+    if file not in TREES:
+        try:
+            TREES[file] = ast.parse(file.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError, ValueError):
+            TREES[file] = ast.Module(body=[], type_ignores=[])
+    value = NO_VALUE
+    for node in TREES[file].body:
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(target, ast.Name) and target.id == name for target in targets) and node.value is not None:
+            try:
+                value = ast.literal_eval(node.value)                 # the last assignment wins, as at import
+            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+                value = NO_VALUE
+    return value
 
 
 def dunder(name):
@@ -147,7 +183,9 @@ class Recorder:
         if path not in self.objects:
             name = path.rsplit(".", 1)[-1].rstrip("()")
             if is_constant_name(name):
-                self.objects[path] = StubText(path, self)
+                plain = not any(mark in path for mark in "()[:")
+                value = source_constant(self.root, path) if plain else NO_VALUE
+                self.objects[path] = StubText(path, self) if value is NO_VALUE else value
             elif name[:1].isupper():
                 self.objects[path] = stub_class(path, self)
             else:
@@ -155,10 +193,11 @@ class Recorder:
         return self.objects[path]
 
     def call(self, path, args, kwargs, make=None):
-        self.record({"call": path, "args": self.value(list(args)), "kwargs": self.value(kwargs),
-                     "site": self.site()})
         behaviour = self.rule(path)
-        if behaviour is not None:
+        if behaviour is None or not behaviour.quiet:
+            self.record({"call": path, "args": self.value(list(args)), "kwargs": self.value(kwargs),
+                         "site": self.site()})
+        if behaviour is not None and (behaviour.configured or not behaviour.quiet):
             return behaviour.run(args, kwargs)
         if path.endswith(".on_commit") and args and callable(args[0]):
             args[0]()
@@ -226,21 +265,26 @@ class Recorder:
 class Behaviour:
     def __init__(self):
         self.values, self.error, self.function, self.items = None, None, None, None
+        self.configured, self.quiet = False, False
 
     def returns(self, *values):
-        self.values = list(values)
+        self.values, self.configured = list(values), True
         return self
 
     def raises(self, error):
-        self.error = error
+        self.error, self.configured = error, True
         return self
 
     def answers(self, function):
-        self.function = function
+        self.function, self.configured = function, True
         return self
 
     def iterates(self, items):
-        self.items = list(items)
+        self.items, self.configured = list(items), True
+        return self
+
+    def pure(self):
+        self.quiet = True
         return self
 
     def run(self, args, kwargs):
@@ -568,6 +612,23 @@ def freeze():
 
 # ---- running scenarios ----
 
+class UnitView:
+    """h.unit: one name, looked up in every unit module; the module that defines it wins over one that imports it."""
+
+    def __init__(self, modules):
+        self._modules = modules
+
+    def __getattr__(self, name):
+        if dunder(name):
+            return getattr(self._modules[0], name)
+        holders = [module for module in self._modules if name in vars(module)]
+        if not holders:
+            raise AttributeError(f"no unit module has {name!r}")
+        own = [module for module in holders
+               if getattr(vars(module)[name], "__module__", None) == module.__name__]
+        return getattr((own or holders)[0], name)
+
+
 class Harness:
     def __init__(self, rec, units):
         self._rec = rec
@@ -577,7 +638,7 @@ class Harness:
 
     @property
     def unit(self):
-        return self.modules[self._units[0]]
+        return UnitView(list(self.modules.values()))
 
     @property
     def modules(self):

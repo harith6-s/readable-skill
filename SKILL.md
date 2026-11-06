@@ -4,7 +4,7 @@ description: Use when working code is hard to follow because a reader must jump 
 disable-model-invocation: true
 argument-hint: "mode=new|refactor|migrate <target> [apply=v2|replace] [out=<path>] [work=<folder>] [layout=A|B|AB] [depth=1-3] [style=auto|function|class]"
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Readable
@@ -40,9 +40,11 @@ The **public surface** is every name that production code outside the unit impor
 
 ### 1. Map
 
-Run `python scripts/jump_depth.py <target> --root <import root> --usage <repo dir>`. It lists entry points, the public surface, inbound callers, outbound calls, helpers shared outside the unit, and code that registers itself on import (task decorators, signal receivers). Then write a one-line meaning for every function yourself. The script cannot do that.
+Run `python scripts/jump_depth.py <target> --root <import root> --usage <repo dir> --check`. It lists entry points, the public surface, inbound callers, outbound calls, helpers shared outside the unit, and code that registers itself on import (task decorators, signal receivers). What `--check` lists is what is wrong now: copy it into `map.md` with the numbers. Then write a one-line meaning for every function yourself. The script cannot do that.
 
-If the target holds more than one task, split it into units. Suggest `apply` for each unit:
+**Fix only what is wrong.** If no story is deeper than one level, the code already reads top to bottom. Do not rewrite its stories. Propose only the moves `--check` names, plus what it cannot see (duplicated chunks, codes written as literals, long conditions: rules 5 to 7 of `references/style.md`), or stopping.
+
+If the target holds more than one task, split it into units, one task each, and give each task its own file (layout in `references/style.md`). A task is one step of the business flow, such as drafting a document or issuing the final one. A task owns its job body and every entry point whose only work is to start or queue that step, even when the caller lives elsewhere. The actions a team takes to repair stuck steps (retry, unlock) together form one task. Code that runs at different steps is different tasks even when it looks alike. Variants of one product made at the same step (by type, by company) are one task with a branch. A task may have several entry points, and they share its file. Write the plan into `map.md`: task → entry points → file. Suggest `apply` for each unit:
 - `replace` fits a small unit with few callers, or a unit that defines self-registering code.
 - `v2` fits a unit with many callers, callers in several packages, or a risky flow (money, documents sent outside).
 
@@ -51,11 +53,11 @@ Read the project's lint and CI configuration (for example ruff, pylint, flake8, 
 - split the story into step functions that are leaves. Some decisions then move into the steps, and the report must say so,
 - leave the configuration to a human.
 
-**Gate:** `<work>/map.md` exists, and the user has approved the units, the `apply` of each, and how to meet any enforced lint limit.
+**Gate:** `<work>/map.md` exists, and the user has approved the units, the file and the `apply` of each, and how to meet any enforced lint limit.
 
 ### 2. Clone
 
-- `v2`: copy the original to the V2 location. Put `_v2` once, on the outermost thing copied: a folder → `utils_v2/`, a file → `doc_v2.py`, a function or a class → `build_preview_v2`. Names inside keep their original names. The V2 must not import anything from the old code.
+- `v2`: copy the original to the V2 location. Put `_v2` once, on the outermost thing copied: a folder → `utils_v2/`, a file → `doc_v2.py`, a file that becomes several task files → a package `doc_v2/`, a function or a class → `build_preview_v2`. Names inside keep their original names. The V2 must not import anything from the old code.
 - `replace`: also copy the original byte for byte to `<work>/before/` and record its hash. Never edit that copy.
 
 **Gate:** the copy imports.
@@ -63,6 +65,8 @@ Read the project's lint and CI configuration (for example ruff, pylint, flake8, 
 ### 3. Record the baseline
 
 Write `<work>/scenarios.py`. Give every public entry point at least three scenarios: a success, a business error, and a failed outbound call (a timeout or an error response). Everything outside the unit is a stub: other project files, the database, HTTP, storage, queues, time, uuid, randomness. Only the standard library and allow-listed modules (pure computation, no I/O) run for real. Never connect to a real service or database.
+
+Mark the stubs of pure computation, such as formatting a date or a number, with `.pure()`: a rewrite may call them a different number of times, and that is not behavior.
 
 Record the original into `<work>/recordings/original.json`. Record the untouched copy as well, then diff the two. Flags and the scenario format: `python scripts/parity.py --help`.
 
@@ -78,15 +82,15 @@ Write pins in the language's comment syntax, spelled exactly like this so they c
 
 ### 5. Verify
 
-- Record the rewrite and diff it against `original.json`. **The diff must be empty.**
-- Run `python scripts/jump_depth.py <rewrite> --root <import root> --usage <repo dir> --check`, adding `--forbid <old module>` for a V2. It fails unless: unit-local depth ≤ 1, project inheritance ≤ 1, no state passed between methods through `self`, every import inside a function has a reason comment (only an import that breaks a circular import may stay there), and a V2 imports nothing from the old code.
+- Record the rewrite and diff it against `original.json`. Give each file of a rewrite split into task files as its own `--unit`, so the same scenarios find each entry point in its new file. **The diff must be empty.**
+- Run `python scripts/jump_depth.py <rewrite> --root <import root> --usage <repo dir> --check`. For a V2 add `--forbid <old module> --public-from <old module>`: nobody imports a V2 yet, so its public names come from the old module. It fails unless: unit-local depth ≤ 1, project inheritance ≤ 1, no state passed between methods through `self`, every import inside a function has a reason comment (only an import that breaks a circular import may stay there), a V2 imports nothing from the old code, and the layout holds: a function called from its own file sits directly below its only caller there, the functions of `shared.py` never call each other, and no `__init__.py` holds code or re-exports names (no facade).
 - The public surface keeps its names and signatures, except changes the user approved for a V2 (see Refactor rules).
 
 **Gate:** all checks pass. Reading the code is not verification. If a check cannot run, write that in the report and stop.
 
 ### 6. Report
 
-Write `<work>/report.md` (see Report). Stop here. The next steps need the user.
+Write `<work>/report.md` (see Report). If you cannot write it (some environments do not let a subagent write reports), put the whole report in your final message and say that the file was not written. Stop here. The next steps need the user.
 
 ### 7. Integrate (`replace` only, after the user approves)
 
@@ -110,7 +114,7 @@ Write the rewrite over the original and resolve every `PIN(integrate)`. Then ver
 ## Mode `new`
 
 1. **Find what to reuse.** Search for existing helpers, clients and constants the feature needs. Code used elsewhere is a leaf: call it, never copy it in, never reshape it during the feature.
-2. **Skeleton.** Write the header map and each entry point as numbered step headings with no bodies yet. Framework-facing code stays thin and calls the story.
+2. **Skeleton.** Write the header map and each entry point as numbered step headings with no bodies yet, one file per task (layout in `references/style.md`). Framework-facing code stays thin and calls the story.
    **Gate:** the user approves the skeleton.
 3. **Fill** each step by following `references/style.md`.
 4. **Test** the way the project normally tests. In Python you can also record the outbound calls with `parity.py` and put them in the report, so the user can review the payloads.
@@ -120,7 +124,9 @@ Write the rewrite over the original and resolve every `PIN(integrate)`. Then ver
 ## Refactor rules
 
 - **Never change behavior, even to improve it.** For example `None` → `"-"`, closing a file, fixing a hidden bug, removing an import that looks unused. Pin it and report it.
+- **Never delete code, even code nothing calls or no caller can reach:** a function, a parameter, a branch. It may be called by name (task names, URL config, `getattr`, templates) or from outside the repository, and a branch no caller takes today may be taken tomorrow. When you inline a helper, carry every branch with it: a parameter no caller passes becomes a local variable set to its default, and its branch stays right below, for example `cleanup = ()` then `if cleanup:`. Mark it `PIN(behavior): no caller found` and list it in the report. A pin never replaces code: the pinned code is still there. Merging a chunk that repeats whole within one flow (the same lookup and check twice in a row once two helpers are inlined) is rule 6 of `references/style.md`, not a deletion. List each such merge in the report.
 - **The public surface stays:** same names, same signatures. Only a V2 may differ, and only per function the user approved. Then the report states how each caller converts its arguments, and the scenarios call the V2 through that same conversion. Outputs never differ: the return value, the raised error, and every outbound call in order with its payload.
+- **No facade.** When a unit becomes several task files, each name moves to its file and callers import it from there. Changing those imports is a `PIN(integrate)` item: done in mode `migrate` for `v2`, and in step 7 for `replace`.
 - **Tests are not the public surface.** Tests that patch internals will break. List them, and do not keep a split-up structure just for them.
 - **Names survive inlining** as step headings or as names of result variables (see `references/style.md`).
 - **Self-registering code must never be active twice.** This covers task decorators, signal receivers and schedules. With `v2`, pin it and plan it in the report. Prefer `replace` for such units.
@@ -130,10 +136,10 @@ Write the rewrite over the original and resolve every `PIN(integrate)`. Then ver
 `<work>/report.md` contains:
 
 1. **Entry map:** entry point → numbered steps → outbound calls → where each payload is built (`file:line`).
-2. **Function map:** old name → new place (inlined into step N, kept as a leaf, or made private).
+2. **Function map:** old name → new place (inlined into step N, merged with a duplicate, kept as a leaf, or made private).
 3. **Numbers before → after:** functions, max depth, functions a reader may need to open, hidden imports, project inheritance, state passed between methods.
 4. **Parity:** scenarios per entry point, the diff result, outbound calls never reached.
-5. **Behavior pins:** bugs and oddities kept as they were.
+5. **Behavior pins:** bugs, oddities and code with no caller, kept as they were.
 6. **Not verified:** anything the checks could not cover.
 7. **Checklist.** Always last, in every mode, whoever does the migration. Generate it from a code scan. Never tick it by hand.
    - `v2`: callers still on the old code (`file:line`), open `PIN(integrate)` items, tests to delete with the old code, and the next command: `/readable mode=migrate <report>`.
@@ -152,3 +158,4 @@ The process and `references/style.md` apply to any language. `scripts/` read **P
 | "I verified it by reading carefully" | That is not verification. Run parity, or report the change as unverified. |
 | "A small fix on the way" | That is a behavior change. Pin it and report it. |
 | "Remove the unused import" | It may be public surface. Check its usage first. |
+| "Nobody passes this argument, so I can drop the branch and pin it" | Keep the branch, with the argument as a local variable set to its default. A pin marks code, it does not replace it. |
