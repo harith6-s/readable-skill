@@ -62,10 +62,10 @@ readable/
 
 ```bash
 # ใช้ในโปรเจกต์เดียว
-git clone https://github.com/<account>/readable-skill.git .claude/skills/readable
+git clone https://github.com/harith6-s/readable-skill.git .claude/skills/readable
 
 # หรือใช้ได้ทุกโปรเจกต์
-git clone https://github.com/<account>/readable-skill.git ~/.claude/skills/readable
+git clone https://github.com/harith6-s/readable-skill.git ~/.claude/skills/readable
 ```
 
 - ชื่อโฟลเดอร์ต้องเป็น `readable` ให้ตรงกับ `name` ใน `SKILL.md`
