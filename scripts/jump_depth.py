@@ -31,6 +31,8 @@ Options:
     --similar FOLDER   functions of the unit that look like a function elsewhere in FOLDER (mode new: reuse that one)
     --callers MODULE   who imports MODULE: production files and test files, as file:line (the migrate checklist)
     --include-tests    count imports made by test files as public
+    --exclude FOLDER   skip a folder when scanning for callers and look-alikes: a folder name (every folder with that
+                       name) or a path (repeatable; nothing is skipped by default)
     --json             the whole report as JSON (parity.py coverage reads its "outbound")
 """
 
@@ -420,13 +422,25 @@ def site_order(item):
     return file, int(line)
 
 
-def importers(usage_root, root, targets, skip_files, include_tests=False):
+def excluded(path, exclude):
+    """True when path sits in an --exclude folder, given by name or by path."""
+    resolved = path.resolve()
+    for item in exclude:
+        if "/" in item.rstrip("/"):
+            if resolved.is_relative_to(Path(item).resolve()):
+                return True
+        elif item.rstrip("/") in path.parts:
+            return True
+    return False
+
+
+def importers(usage_root, root, targets, skip_files, include_tests=False, exclude=()):
     """Who imports each target module: {"names": public names, "callers": [{"file", "line", "names", "test"}]}.
     Test files are listed but their names are not public unless include_tests: tests often import internals."""
     found = {target: {"names": set(), "callers": []} for target in targets}
     for path in sorted(usage_root.rglob("*.py")):
-        if path.resolve() in skip_files or "compare" in path.parts:
-            continue                                        # compare/ holds the experiment's own variants
+        if path.resolve() in skip_files or excluded(path, exclude):
+            continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
             current = module_name(path, root)
@@ -480,14 +494,14 @@ def statements(node):
     return sum(isinstance(inner, ast.stmt) for inner in ast.walk(node)) - 1
 
 
-def similar(unit, folder, root):
+def similar(unit, folder, root, exclude=()):
     """Pairs (unit function, function elsewhere in folder) whose bodies look alike."""
     mine = {key: fingerprint(node) for key, node in unit.nodes.items() if statements(node) >= SIMILAR_MIN_STATEMENTS}
     unit_files = {Path(info["file"]).resolve() for info in unit.modules.values()}
     matches = []
     matcher = difflib.SequenceMatcher()
     for path in sorted(folder.rglob("*.py")):
-        if (path.resolve() in unit_files or "compare" in path.parts or "migrations" in path.parts
+        if (path.resolve() in unit_files or excluded(path, exclude) or "migrations" in path.parts
                 or is_test_file(path)):
             continue
         try:
@@ -594,6 +608,7 @@ def main():
     parser.add_argument("--root", required=True, help="import root, e.g. application/")
     parser.add_argument("--usage", help="folder to scan for imports of the unit (public surface, callers)")
     parser.add_argument("--include-tests", action="store_true", help="count imports made by test files as public")
+    parser.add_argument("--exclude", action="append", default=[], metavar="FOLDER")
     parser.add_argument("--callers", metavar="MODULE", help="list who imports MODULE, then stop")
     parser.add_argument("--forbid", action="append", default=[], metavar="MODULE")
     parser.add_argument("--public-from", action="append", default=[], metavar="MODULE")
@@ -607,7 +622,7 @@ def main():
     if args.callers:
         if not args.usage:
             parser.error("--callers needs --usage")
-        info = importers(Path(args.usage), root, [args.callers], set(), args.include_tests)[args.callers]
+        info = importers(Path(args.usage), root, [args.callers], set(), args.include_tests, args.exclude)[args.callers]
         if args.json:
             json.dump({"module": args.callers, "callers": info["callers"]}, sys.stdout, ensure_ascii=False, indent=2)
         else:
@@ -622,11 +637,13 @@ def main():
         files.extend(sorted(p for p in path.rglob("*.py") if p.name != "__init__.py") if path.is_dir() else [path])
     unit = Unit(files, root)
     unit_files = {Path(info["file"]).resolve() for info in unit.modules.values()}
-    usage = importers(Path(args.usage), root, list(unit.modules), unit_files, args.include_tests) if args.usage else {}
+    usage = (importers(Path(args.usage), root, list(unit.modules), unit_files, args.include_tests, args.exclude)
+             if args.usage else {})
     shared = {f"{module}:{name}" for module, info in usage.items() for name in info["names"]
               if f"{module}:{name}" in unit.defs}
     if args.public_from:
-        old = importers(Path(args.usage or args.root), root, args.public_from, unit_files, args.include_tests)
+        old = importers(Path(args.usage or args.root), root, args.public_from, unit_files, args.include_tests,
+                        args.exclude)
         kept = {name for info in old.values() for name in info["names"]}
         shared |= {key for key in unit.defs if key.split(":", 1)[1] in kept}
 
@@ -654,7 +671,7 @@ def main():
                         if source == forbidden or source.startswith(forbidden + ".")}.values())
     forbid_hits.sort()
     if args.similar:
-        report["similar"] = similar(unit, Path(args.similar), root)
+        report["similar"] = similar(unit, Path(args.similar), root, args.exclude)
     report["layout"] = same_file_jumps(unit) + facades(args.paths, root)
     report["summary"] = {
         "functions": sum(m["functions"] for m in report["modules"]),

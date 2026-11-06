@@ -1,6 +1,6 @@
 ---
 name: readable
-description: Use when working code is hard to follow because a reader must jump back and forth between functions or files (inside one file or across files) to trace one request, job or task from start to end; when nobody can say which function is the entry point or where a payload is assembled; when an earlier "make it readable" refactor split the code into smaller pieces; or when a new feature must read top to bottom from the start.
+description: Use when working Python code is hard to follow because a reader must jump back and forth between functions or files (inside one file or across files) to trace one request, job or task from start to end; when nobody can say which function is the entry point or where a payload is assembled; when an earlier "make it readable" refactor split the code into smaller pieces; or when a new feature must read top to bottom from the start.
 disable-model-invocation: true
 argument-hint: "mode=new|refactor|migrate <target> [apply=v2|replace] [out=<path>] [work=<folder>] [layout=A|B|AB] [depth=1-3] [style=auto|function|class]"
 metadata:
@@ -148,7 +148,7 @@ Write the rewrite over the original and resolve every `PIN(integrate)`. Then ver
 
 ## Languages and tools
 
-The process and `references/style.md` apply to any language. `scripts/` read **Python only** and need Python 3 (standard library only). For another language, do the map with search tools and build the stub harness with that language's own test tools, for example module mocks in vitest or jest, or interfaces and fakes in Go. The report must then say that the parity harness was hand-built. Language traps exist only in `references/python.md` for now.
+Version 1.x supports **Python only**. The scripts need Python 3.10 or newer (standard library only), and the target must be Python 3 code. If the target is in another language, stop at the Map step and tell the user that this version does not support it. `parity.py` cannot stub awaited calls yet, so for code that awaits its outbound calls (`async def` with `await`) say so at the Map gate and stop. Calls made by name at run time (`getattr(obj, name)()`, a dict of functions) are invisible to `jump_depth.py`: list them in `map.md` by hand. If the repository holds copies of the code under study, skip them with `--exclude <folder>`.
 
 ## Red flags (seen in baseline runs without this skill)
 
