@@ -4,7 +4,7 @@
 
 ```
 examples/<ชื่อ>/
-  case.json      ชื่อ, รูปร่าง (shape), โมดูลเดิม, scenarios, งาน (tasks), กิ่งที่ไม่มีใครเรียก (kept_branches), ผลที่ควรได้
+  case.json      ชื่อ, รูปร่าง (shape), โมดูลเดิม, scenarios, งาน (tasks), กิ่งที่ไม่มีใครเรียก (kept_branches), ก้อนที่ต้องเขียนที่เดียว (written_once), รหัสสถานะ (codes), ผลที่ควรได้
   src/           โปรเจกต์ตัวอย่าง (นี่คือ import root)
   scenarios.py   สถานการณ์สำหรับ parity.py
 ```

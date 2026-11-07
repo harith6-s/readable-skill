@@ -15,6 +15,10 @@ READABLE_SCRIPTS environment variable, else ../scripts next to this folder). Exi
 09 no new file imports the original module
 11 branches of the original that no caller reaches are still in the code as `if` statements (cases that list them)
 12 jump_depth classes: no state passed between methods through self, project inheritance <= 1
+13 each chunk that repeated whole is written in one function only (style rule 6, cases that list a marker of each:
+   ".name" is a method or attribute, any other marker a name)
+14 status codes are named constants, each defined once and never written as a literal elsewhere (style rule 7, cases
+   that list them)
 """
 
 import argparse
@@ -100,6 +104,43 @@ def kept_branches(files, names):
                 for name in {n.id for n in ast.walk(node.test) if isinstance(n, ast.Name)} & set(found):
                     found[name] += 1
     return found
+
+
+def uses(files, marker):
+    """The functions that use `marker`, as "file:function". ".name" matches an attribute only (a method call), any
+    other marker a name or an attribute."""
+    attribute_only, name = marker.startswith("."), marker.lstrip(".")
+    found = set()
+
+    def visit(node, path, scope):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scope = node.name
+        if (isinstance(node, ast.Attribute) and node.attr == name) or (
+                not attribute_only and isinstance(node, ast.Name) and node.id == name):
+            found.add(f"{path.name}:{scope}")
+        for child in ast.iter_child_nodes(node):
+            visit(child, path, scope)
+
+    for path in files:
+        visit(ast.parse(path.read_text(encoding="utf-8")), path, "<module>")
+    return sorted(found)
+
+
+def inline_codes(files, codes):
+    """Codes written as literals anywhere but as the value of their ALL_CAPS constant, and codes defined twice."""
+    literals, defined = [], []
+    for path in files:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        named = {id(node.value) for node in tree.body
+                 if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and node.value.value in codes
+                 and all(isinstance(target, ast.Name) and target.id.isupper() for target in node.targets)}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in codes:
+                if id(node) in named:
+                    defined.append(node.value)
+                else:
+                    literals.append(f"{path.name}:{node.lineno} {node.value!r}")
+    return literals, sorted({code for code in defined if defined.count(code) > 1})
 
 
 def importing(files, module):
@@ -209,6 +250,18 @@ def grade(example, workdir, scripts):
     if case.get("kept_branches"):
         found = kept_branches(files, case["kept_branches"])
         results.append(expectation("11 unreachable branches kept", all(found.values()), f"`if` statements on {found}"))
+
+    # 13 a chunk that repeated whole is written once
+    if case.get("written_once"):
+        found = {marker: uses(files, marker) for marker in case["written_once"]}
+        results.append(expectation("13 repeated chunks written once", all(len(places) <= 1 for places in found.values()),
+                                   f"used in {found}"))
+
+    # 14 codes are named constants
+    if case.get("codes"):
+        literals, twice = inline_codes(files, case["codes"])
+        results.append(expectation("14 codes are named constants", not literals and not twice,
+                                   f"literals {literals[:6]}; defined twice {twice}"))
     return results
 
 

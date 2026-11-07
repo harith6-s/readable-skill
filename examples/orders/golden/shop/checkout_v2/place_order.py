@@ -1,8 +1,8 @@
 """Step 2: reserve stock, charge, save the order and send the receipt (and the entry point that queues it)."""
 
 from shop import audit, inventory, mailer, orders_store, queue
-from shop.checkout_v2.shared import money, release_all
-from shop.config import FREE_SHIPPING_OVER, GATEWAY_URL, RECEIPT_SENDER, SHIPPING_FEE, TAX_RATE
+from shop.checkout_v2.shared import PAID, cart_totals, money, release_all
+from shop.config import GATEWAY_URL, RECEIPT_SENDER
 from shop.payments import Gateway, GatewayError
 
 
@@ -12,10 +12,7 @@ def queue_place_order(cart, customer):
 
 
 def place_order(cart, customer, notify=True):
-    subtotal = sum(item["price"] * item["qty"] for item in cart["items"])
-    shipping = 0 if subtotal >= FREE_SHIPPING_OVER else SHIPPING_FEE
-    tax = round(subtotal * TAX_RATE, 2)
-    totals = {"subtotal": subtotal, "shipping": shipping, "tax": tax, "total": subtotal + shipping + tax}
+    totals = cart_totals(cart)
     reserved = _reserve_all(cart)
     if not reserved["ok"]:
         audit.log("order_rejected", customer=customer["id"], short=reserved["short"])
@@ -35,7 +32,7 @@ def place_order(cart, customer, notify=True):
     for item in cart["items"]:
         lines.append({"sku": item["sku"], "qty": item["qty"], "amount": item["price"] * item["qty"]})
     record = {"customer": customer["id"], "lines": lines, "totals": totals,
-              "payment": paid["id"], "status": "paid"}
+              "payment": paid["id"], "status": PAID}
     order_id = orders_store.save_order(record)
     if notify:
         cc = ()    # nothing passes cc, the copy branch stays

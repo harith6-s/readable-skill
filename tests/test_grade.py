@@ -44,11 +44,11 @@ class Golden(unittest.TestCase):
 
     def test_the_correct_refactor_passes_everything(self):
         results = self.graded()
-        self.assertEqual(sorted(results), ["01", "02", "03", "04", "07", "08", "09", "11", "12"])
+        self.assertEqual(sorted(results), ["01", "02", "03", "04", "07", "08", "09", "11", "12", "13", "14"])
         self.assertEqual([key for key, item in results.items() if not item["passed"]], [])
 
     def test_a_changed_payload_fails_parity_only(self):
-        self.assertEqual(self.failing(self.edit("preview_order.py", "round(subtotal * TAX_RATE, 2)",
+        self.assertEqual(self.failing(self.edit("shared.py", "round(subtotal * TAX_RATE, 2)",
                                                 "subtotal * TAX_RATE")), ["01"])
 
     def test_a_dropped_unreachable_branch_passes_parity_but_fails_the_kept_branch_check(self):
@@ -92,6 +92,26 @@ class Golden(unittest.TestCase):
                 handle.write("\n\nclass _Base:\n    pass\n\n\nclass _Middle(_Base):\n    pass\n\n\n"
                              "class _Leaf(_Middle):\n    pass\n")
         self.assertEqual(self.failing(mutate), ["12"])
+
+    def test_a_service_call_copied_into_a_second_story_fails_the_written_once_check_only(self):
+        def mutate(work):
+            path = work / PACKAGE / "repair_order.py"
+            text = path.read_text()
+            old = "    if not refund_payment(order):\n"
+            new = ("    try:\n        Gateway(GATEWAY_URL).refund(order[\"payment\"], order[\"totals\"][\"total\"])\n"
+                   "    except GatewayError:\n")
+            self.assertIn(old, text)
+            text = text.replace(old, new, 1).replace(
+                "from shop import audit, orders_store\n",
+                "from shop import audit, orders_store\nfrom shop.config import GATEWAY_URL\n"
+                "from shop.payments import Gateway, GatewayError\n", 1)
+            path.write_text(text)
+        self.assertEqual(self.failing(mutate), ["13"])
+
+    def test_a_status_code_written_as_a_literal_fails_the_codes_check_only(self):
+        mutate = self.edit("cancel_order.py", "orders_store.mark(order_id, CANCELLING)",
+                           'orders_store.mark(order_id, "cancelling")')
+        self.assertEqual(self.failing(mutate), ["14"])
 
     def test_a_missing_public_name_fails_surface_check(self):
         mutate = self.edit("repair_order.py", "def unlock_order(order_id):", "def unlock_the_order(order_id):")

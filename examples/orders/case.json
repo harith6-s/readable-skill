@@ -7,5 +7,7 @@
   "scenarios": ["scenarios.py"],
   "allow": [],
   "tasks": [["preview_order"], ["place_order", "queue_place_order"], ["cancel_order"], ["retry_refund", "unlock_order"]],
-  "kept_branches": ["notify", "capture", "cc"]
+  "kept_branches": ["notify", "capture", "cc"],
+  "written_once": [".refund", "TAX_RATE"],
+  "codes": ["paid", "cancelling", "cancelled", "refund_failed"]
 }

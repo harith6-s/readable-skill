@@ -1,12 +1,24 @@
-"""Leaves called from more than one task file. None of them calls another."""
+"""Leaves called from more than one task file, and the order status codes. None of the functions calls another."""
 
-from shop import audit, inventory, orders_store
-from shop.config import GATEWAY_URL
+from shop import inventory
+from shop.config import FREE_SHIPPING_OVER, GATEWAY_URL, SHIPPING_FEE, TAX_RATE
 from shop.payments import Gateway, GatewayError
+
+PAID = "paid"
+CANCELLING = "cancelling"
+CANCELLED = "cancelled"
+REFUND_FAILED = "refund_failed"
 
 
 def money(value):
     return f"{value:,.2f}"
+
+
+def cart_totals(cart):
+    subtotal = sum(item["price"] * item["qty"] for item in cart["items"])
+    shipping = 0 if subtotal >= FREE_SHIPPING_OVER else SHIPPING_FEE
+    tax = round(subtotal * TAX_RATE, 2)
+    return {"subtotal": subtotal, "shipping": shipping, "tax": tax, "total": subtotal + shipping + tax}
 
 
 def release_all(cart):
@@ -14,12 +26,10 @@ def release_all(cart):
         inventory.release(item["sku"], item["qty"])
 
 
-def refund(order):
+def refund_payment(order):
+    """True when the gateway took the refund, False when it refused it."""
     try:
         Gateway(GATEWAY_URL).refund(order["payment"], order["totals"]["total"])
     except GatewayError:
-        orders_store.mark(order["id"], "refund_failed")
-        return {"ok": False, "reason": "refund"}
-    orders_store.mark(order["id"], "cancelled")
-    audit.log("order_cancelled", order_id=order["id"], refunded=f"{order['totals']['total']:,.2f}")
-    return {"ok": True}
+        return False
+    return True
