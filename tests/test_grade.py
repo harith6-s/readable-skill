@@ -112,6 +112,15 @@ class Pieces(unittest.TestCase):
         where = {"a": "x.py", "c": "x.py"}
         self.assertFalse(grade.check_tasks(where, [["a"], ["c"]])[0])
 
+    def test_targets_scan_a_new_package_whole_but_only_the_new_file_of_an_old_package(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        for name in ("shop/__init__.py", "shop/checkout_v2.py", "shop/v3/__init__.py", "shop/v3/a.py"):
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_text("")
+        files = [root / "shop/checkout_v2.py", root / "shop/v3/__init__.py", root / "shop/v3/a.py"]
+        self.assertEqual(grade.targets(files, root), [root / "shop/v3", root / "shop/checkout_v2.py"])
+
     def test_dotted_names(self):
         root = Path("/p")
         self.assertEqual(grade.dotted(Path("/p/shop/checkout_v2/shared.py"), root), "shop.checkout_v2.shared")

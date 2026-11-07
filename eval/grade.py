@@ -60,9 +60,11 @@ def dotted(path, root):
 
 
 def targets(files, root):
-    """What jump_depth scans: the folder of a package of new files (so it also checks its __init__.py), else the file."""
-    folders = {path.parent for path in files if (path.parent / "__init__.py").exists() and path.parent != root}
-    loose = [path for path in files if path.parent not in folders and path.parent == root]
+    """What jump_depth scans: the folder of a package the run made (so it also checks its __init__.py), else the file.
+    A new file inside a package that already existed is scanned alone, never with the original next to it."""
+    new = set(files)
+    folders = {path.parent for path in files if path.parent / "__init__.py" in new and path.parent != root}
+    loose = [path for path in files if path.parent not in folders]
     return sorted(folders) + loose
 
 
