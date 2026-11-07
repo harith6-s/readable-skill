@@ -75,6 +75,18 @@ class Record(ProjectTest):
             """)
         self.assertNotEqual(code, 0)
 
+    def test_async_unit_is_refused_and_nothing_is_written(self):
+        root = self.project({"feeds/__init__.py": "", "feeds/client.py": "async def get(url):\n    raise NotImplementedError\n",
+                             "feeds/sync.py": "from feeds import client\n\nasync def fetch(url):\n    return await client.get(url)\n"})
+        code, text, rec = self.record(root, "feeds/sync.py", """
+            def scenario_fetch(h):
+                h.stub("feeds.client.get").returns({"items": []})
+                return h.unit.fetch("a")
+            """)
+        self.assertEqual(code, 1, text)
+        self.assertIn("feeds/sync.py:3", text)
+        self.assertIsNone(rec)
+
     def test_time_and_uuid_are_frozen(self):
         root = self.project({**BILLING, "billing/flow.py": """
             import datetime, uuid, time
@@ -229,27 +241,6 @@ class Coverage(ProjectTest):
 class KnownLimits(ProjectTest):
     """Behaviours of 1.x that a later version should change. Each has the current behaviour pinned and the wanted
     behaviour as an expected failure, so the day it is fixed the suite tells you to flip the pair."""
-
-    ASYNC = {"feeds/__init__.py": "", "feeds/client.py": "async def get(url):\n    raise NotImplementedError\n",
-             "feeds/sync.py": "from feeds import client\n\nasync def fetch(url):\n    return await client.get(url)\n"}
-    SCENARIO = """
-        def scenario_fetch(h):
-            h.stub("feeds.client.get").returns({"items": []})
-            return h.unit.fetch("a")
-        """
-
-    def test_known_limit_async_unit_records_a_coroutine_and_exits_zero(self):
-        root = self.project(self.ASYNC)
-        code, text, rec = self.record(root, "feeds/sync.py", self.SCENARIO)
-        self.assertEqual(code, 0)
-        outcome = self.scenario(rec, "scenario_fetch")["outcome"]["return"]
-        self.assertEqual(outcome["__object__"], "coroutine")
-
-    @unittest.expectedFailure
-    def test_async_unit_should_be_refused_or_awaited(self):
-        root = self.project(self.ASYNC)
-        code, text, rec = self.record(root, "feeds/sync.py", self.SCENARIO)
-        self.assertNotEqual(code, 0)
 
     def test_known_limit_getattr_on_a_stubbed_module_never_misses(self):
         root = self.project({"hooks/__init__.py": "", "hooks/handlers.py": "def on_a(e):\n    return 1\n",

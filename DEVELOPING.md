@@ -78,25 +78,15 @@
 ## สถานะ (1.1, 2026-11-07)
 
 - ผลการทดสอบรอบที่ 1-4 สรุปไว้ใน `README.md` ข้อมูลดิบกับโค้ดที่ใช้ทดสอบเป็นของบริษัท จึงไม่อยู่ใน repo นี้และจะไม่มี
-- เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 มี 55 ข้อ ผ่านทั้งหมด ในนั้น 2 ข้อเป็น expected failure ที่ตั้งใจไว้
+- เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 ตอนนี้มี 54 ข้อ ผ่านทั้งหมด ในนั้น 1 ข้อเป็น expected failure ที่ตั้งใจไว้
+- `parity.py` ปฏิเสธโค้ด async แล้ว (ส่วน 1.2 ใน `CHANGELOG.md`)
 - ยังไม่เคยให้ agent ใช้ skill กับ `examples/` เลย
-
-### ปัญหาที่เจอเพิ่มตอนเขียนชุดทดสอบ (ยังไม่อยู่ใน CHANGELOG)
-
-ปัญหาข้อ 1-9 อยู่ใน `CHANGELOG.md` ส่วนนี้คือข้อ 10-13 ที่เพิ่งเจอ:
-
-10. **(ร้ายแรงที่สุด)** `parity.py record` กับโค้ด `async def` ที่ `await` บันทึกผลเป็น coroutine แล้ว exit 0 rewrite แบบไหนก็จะผ่าน parity ทั้งที่ไม่ได้วัดอะไรเลย ตอนนี้ต้องพึ่งให้ AI หยุดที่ขั้น Map เอง (`tests/test_parity.py` KnownLimits)
-11. `getattr(module_ที่ถูก_stub, name, None)` ไม่เคยได้ `None` กิ่ง "ไม่พบ" จึงทดสอบด้วย parity ไม่ได้ (`tests/test_parity.py` KnownLimits)
-12. ไฟล์ `tests.py` แบบ Django ถูกนับเป็นผู้เรียกฝั่ง production เพราะ `is_test_file` รู้จักแค่ `test_*.py`, `*_test.py` และโฟลเดอร์ `tests/` (`tests/test_jump_depth.py` KnownLimits)
-13. โค้ดที่เรียกด้วยชื่อตอนรัน แผนที่มองไม่เห็นตัวที่ถูกเรียก `--check` จึงบอก OK ข้อนี้ skill บอกไว้แล้วว่าให้ไล่เองใน `map.md` (`tests/test_examples.py`)
 
 ## งานถัดไป (ตามลำดับที่ตกลงกัน)
 
-1. ย้ายปัญหาข้อ 10-13 ลง `CHANGELOG.md`
-2. ให้ `parity.py` ปฏิเสธโค้ด async (exit ไม่เป็น 0 พร้อมข้อความที่ชัด) แล้วสลับคู่ทดสอบใน `tests/test_parity.py` KnownLimits
-3. ให้ agent ใช้ skill กับ `examples/` ทั้ง 5 ตัว แล้วดูผลตาม `shape` ใน `case.json` ของแต่ละตัว (refactor ใช้ `eval/grade.py`, ตัวอื่นดูว่าหยุดหรือบอกตามที่ควร)
-4. งานที่เหลือของ 1.2: ปัญหาข้อ 1-9 และ 11-12, เฉลย (`golden/`) ของ `statements`, ชุดคำถามของ `orders`, อัปเดตส่วน "โครงสร้าง" ใน `README.md` ให้มี `tests/`, `examples/`, `eval/grade.py`
-5. เข้า `main` และติด tag `v1.1` เมื่อผู้ดูแลพอใจ
+1. ให้ agent ใช้ skill กับ `examples/` ทั้ง 5 ตัว แล้วดูผลตาม `shape` ใน `case.json` ของแต่ละตัว (refactor ใช้ `eval/grade.py`, ตัวอื่นดูว่าหยุดหรือบอกตามที่ควร)
+2. งานที่เหลือของ 1.2: ปัญหาข้อ 1-9 และ 11-12, เฉลย (`golden/`) ของ `statements`, ชุดคำถามของ `orders`, อัปเดตส่วน "โครงสร้าง" ใน `README.md` ให้มี `tests/`, `examples/`, `eval/grade.py`
+3. เข้า `main` และติด tag `v1.1` เมื่อผู้ดูแลพอใจ
 
 ## รันทดสอบ
 

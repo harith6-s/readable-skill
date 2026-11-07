@@ -17,4 +17,4 @@ examples/<ชื่อ>/
 | `plugins` | list-by-hand | เรียก handler ด้วยชื่อตอนรัน (`getattr`) | ผู้ใช้ skill ต้องไล่ handler เองใน `map.md` และบอกที่ประตู |
 | `async_jobs` | unsupported | `async def` ที่ `await` | ประตู Map บอกว่า 1.x ไม่รองรับ แล้วหยุด |
 
-เมื่อรองรับ async ใน 1.2 ให้เปลี่ยน `async_jobs` เป็น `refactor` (และสลับคู่ข้อจำกัดใน `tests/`)
+เมื่อรองรับ async ใน 1.2 ให้เปลี่ยน `async_jobs` เป็น `refactor` (และเปลี่ยนข้อทดสอบใน `tests/` ที่ตรวจว่า `parity.py` ปฏิเสธ async)

@@ -39,6 +39,8 @@ class Recording(unittest.TestCase):
         import tempfile
         for name in EXAMPLE_NAMES:
             info = case(name)
+            if info["shape"] == "unsupported":               # parity.py refuses it (see Shapes)
+                continue
             src = EXAMPLES / name / "src"
             with self.subTest(name), tempfile.TemporaryDirectory() as temp:
                 for take in ("a", "b"):
@@ -88,9 +90,17 @@ class Shapes(unittest.TestCase):
         self.assertNotIn("on_created", text)
 
     def test_async_original_passes_the_check_although_it_cannot_be_recorded(self):
-        """Known limit (see test_parity.KnownLimits): nothing in the scripts says await is unsupported."""
+        """jump_depth.py does not look for async, so --check says OK. parity.py refuses to record it."""
+        import tempfile
         code, text = self.check("async_jobs")
         self.assertEqual(code, 0, text)
+        info = case("async_jobs")
+        with tempfile.TemporaryDirectory() as temp:
+            code, text = parity("record", "--unit", info["original"], "--root", ".",
+                                "--scenarios", EXAMPLES / "async_jobs" / info["scenarios"][0],
+                                "--out", f"{temp}/rec.json", cwd=EXAMPLES / "async_jobs" / "src")
+        self.assertEqual(code, 1, text)
+        self.assertIn("feeds/sync.py:6", text)
 
 
 if __name__ == "__main__":

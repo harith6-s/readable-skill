@@ -13,6 +13,7 @@ record
   Celery, settings. The network and database parts of the standard library are stubbed as well (socket, ssl,
   http.client, urllib.request, smtplib, sqlite3, subprocess ...), so nothing reaches a real service or database.
   datetime.now()/today(), time.time(), uuid4() and random are frozen. Each scenario imports a fresh copy of the unit.
+  A unit that defines `async def` is refused (exit 1): a stub cannot be awaited, so its recording would measure nothing.
 
 scenarios.py
   Every function named scenario_* is one scenario, run in file order. It gets a harness `h`, sets the stubs up,
@@ -692,6 +693,22 @@ def fresh(units):
     random.seed(0)
 
 
+def async_functions(unit_files, root):
+    """Every `async def` in the unit, as "file:line async def name"."""
+    found = []
+    for name in sorted(unit_files):
+        path = Path(name)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError, ValueError):
+            continue                                         # importing the unit reports it
+        shown = path.relative_to(root) if path.is_relative_to(root) else path
+        nodes = sorted((node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef)),
+                       key=lambda node: node.lineno)
+        found.extend(f"{shown}:{node.lineno} async def {node.name}" for node in nodes)
+    return found
+
+
 def raised_in_unit(trace, unit_files):
     """True when the unit's code was on the stack: the error is the unit's outcome, not a broken scenario."""
     while trace is not None:
@@ -718,6 +735,10 @@ def record(args):
     unit_files = set()
     for path in units.values():
         unit_files.update(str(p) for p in (path.rglob("*.py") if path.is_dir() else [path]))
+    found = async_functions(unit_files, root)
+    if found:
+        raise SystemExit("cannot record async code: a stub cannot be awaited, so the recording would measure nothing. "
+                         "Stop at the Map step.\n" + "\n".join(f"  {item}" for item in found))
     RECORDER = Recorder(unit_files, root, args.keep_tracebacks)
     FROZEN["now"] = _datetime.datetime.fromisoformat(args.now)
     for name in list(sys.modules):
