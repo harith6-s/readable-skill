@@ -1,37 +1,37 @@
-# Python / Django: กับดักของการ inline
+# Python / Django: traps when inlining
 
-จุดเหล่านี้คือที่ที่การย้ายหรือ inline โค้ดทำให้พฤติกรรมเปลี่ยนโดยไม่รู้ตัว เช็กทุกข้อก่อน rewrite
+These are the places where moving or inlining code changes behavior without anyone noticing. Check every item before a rewrite.
 
 ## Control flow
 
-- **`return` ใน helper** พอ inline แล้ว `return` จะออกจาก *ผู้เรียก* ทั้งตัว ให้เปลี่ยนเป็น `if/else` หรือคงการออกก่อนกำหนดไว้เฉพาะจุดที่ผู้เรียกต้องจบจริง
-- **ขอบเขตของ `try/except/finally`** `try` ของ helper เดิมครอบแค่เนื้อของ helper พอ inline แล้วต้องครอบบรรทัดเดิมทุกบรรทัด ถ้ากว้างขึ้น error ที่เคยหลุดออกไปจะถูกกลืน ถ้าแคบลง error ที่เคยถูกจับจะหลุดออกไป
-- **ลำดับการประเมินค่า** argument ถูกประเมินก่อนเรียกฟังก์ชัน ตอน inline `f(a(), b())` ต้องคงลำดับ side effect ของ `a` และ `b` (query, การเรียก API, การอัปโหลด) ไว้เหมือนเดิม
-- **ชื่อตัวแปรชนกัน** ตัวแปร local ของ helper อาจทับตัวแปรของผู้เรียก การเปลี่ยนชื่อ *ตัวแปร local* ในโค้ดที่ inline ทำได้ เพราะไม่ใช่ส่วนของ API
-- **ตัวแปรที่ตั้งค่าไว้ก่อน raise แล้ว `except` ข้างนอกอ่าน** เช่น `code = "81"` แล้ว `raise` จากนั้น `except` ท้ายฟังก์ชันคืน `code` ออกไป ถ้าย้ายบล็อกนี้ (extract) เข้า helper การตั้งค่าจะกลายเป็นตัวแปรของ helper และ `except` จะเห็นค่าเดิม ให้ helper คืนค่าออกมา แล้วตั้งตัวแปรในเรื่องเล่า (style.md กฎข้อ 6)
+- **`return` in a helper.** Once inlined, the `return` leaves the whole *caller*. Turn it into `if/else`, or keep the early exit only where the caller really has to end.
+- **Scope of `try/except/finally`.** The `try` of the old helper covered only the helper's body. After inlining it must wrap exactly the same lines. If it gets wider, an error that used to escape is swallowed. If it gets narrower, an error that used to be caught escapes.
+- **Order of evaluation.** Arguments are evaluated before the function is called. When inlining `f(a(), b())`, keep the order of the side effects of `a` and `b` (queries, API calls, uploads) exactly as it was.
+- **Clashing variable names.** A local variable of the helper may overwrite a variable of the caller. Renaming a *local variable* in the inlined code is allowed, because it is not part of the API.
+- **A variable set before a `raise` that an outer `except` reads.** For example `code = "81"` then `raise`, and an `except` at the end of the function returns `code`. If you extract this block into a helper, the assignment becomes a variable of the helper and the `except` sees the old value. Let the helper return the value and set the variable in the story (style.md, rule 6).
 
 ## Django
 
-- **queryset แบบ lazy** queryset จะรันจริงตอนถูกวน, ถูก slice, ถูก `list()` หรือถูกเช็กค่าจริง/เท็จ ถ้า inline แล้วจังหวะนี้เลื่อนไปอยู่ก่อนหรือหลังการเขียนข้อมูลใน flow เดียวกัน ผลอาจได้แถวต่างไป ต้องคงจังหวะเดิมไว้
-- **ขอบเขตของ `transaction.atomic()`** statement ที่อยู่ในและนอกแต่ละ atomic block ต้องเหมือนเดิมทุกบรรทัด `select_for_update()` จะ lock ได้เฉพาะใน atomic block เท่านั้น
-- **`transaction.on_commit(lambda: ...)` ใน loop** lambda ผูกตัวแปรตอนรันจริง ไม่ใช่ตอนสร้าง ถ้าย้ายตำแหน่ง ค่าที่มันเห็นตอนรันอาจเปลี่ยน
-- **decorator บน helper** (`@transaction.atomic`, caching, retry) การ inline ทำให้ decorator หายไป ต้องสร้างผลแบบเดียวกันที่จุดเรียก หรือเก็บ helper ไว้
-- **URLconf และการโหลดแอปทำทันทีตอนเริ่ม** `ImportError` ในโมดูลไหนก็ตามที่ถูก import ทำให้ทั้งโปรเจกต์ล่มได้ การย้าย import จากในฟังก์ชันขึ้นไปหัวไฟล์อาจทำให้เกิด circular import ตอนเริ่มระบบ
+- **Lazy querysets.** A queryset runs when it is iterated, sliced, passed to `list()` or tested for truth. If inlining moves that moment before or after a write in the same flow, the result may contain different rows. Keep the original timing.
+- **Scope of `transaction.atomic()`.** The statements inside and outside each atomic block must stay the same, line for line. `select_for_update()` can only lock inside an atomic block.
+- **`transaction.on_commit(lambda: ...)` in a loop.** The lambda binds its variables when it runs, not when it is created. If you move it, the values it sees at run time may change.
+- **Decorators on a helper** (`@transaction.atomic`, caching, retry). Inlining drops the decorator. Recreate the same effect at the call site, or keep the helper.
+- **URLconf and app loading happen immediately at startup.** An `ImportError` in any imported module can take the whole project down. Moving an import from inside a function to the top of the file may cause a circular import at startup.
 
 ## Celery
 
-- **ชื่อที่ task ลงทะเบียนไว้คือ path ของโมดูล** ถ้าไม่ได้ระบุ `name=` การย้ายฟังก์ชันที่มี `@shared_task` หรือ `@app.task` ไปโมดูลอื่นคือการเปลี่ยนชื่อ task งานที่ค้างในคิว, beat schedule และ worker จะพัง ห้ามย้ายฟังก์ชัน task ย้ายได้แค่ *เนื้อใน* ที่ task เรียก
-- จุดที่เรียก `.delay()`/`.apply_async()` ต้องอยู่ตำแหน่งเดิมเมื่อเทียบกับ `on_commit` และการเขียน DB รอบ ๆ
+- **A task's registered name is its module path** unless `name=` is given. Moving a function decorated with `@shared_task` or `@app.task` to another module renames the task. Jobs waiting in the queue, the beat schedule and the workers all break. Never move a task function. Only the *bodies* that the task calls may move.
+- A call to `.delay()` / `.apply_async()` must stay in the same position relative to `on_commit` and the DB writes around it.
 
-## Import และ visibility
+## Imports and visibility
 
-- **`_name` เป็นแค่ข้อตกลง** ไม่ได้ซ่อนอะไรจริง แต่ยังบอกได้ว่าอะไรที่ข้างนอกใช้ได้ และ linter จะเตือนถ้ามีโมดูลอื่นมาแตะ `from module import *` จะข้ามชื่อที่ขึ้นต้นด้วย `_` จึงต้องเช็กว่ามีที่ไหนพึ่ง `*` อยู่หรือเปล่า
-- **relative import** (`from ..models import X`) เปลี่ยนความหมายเมื่อย้ายไฟล์ ใน layout ใหม่ให้ใช้ absolute import
-- **`from x import y` คัดลอกการอ้างอิงมาไว้** patch `x.y` ทีหลังจะไม่มีผลกับโมดูลที่ import `y` ไปแล้ว `scripts/parity.py` จึงไม่ patch แต่แทนทุกโมดูลนอก unit ด้วย stub ตั้งแต่ตอน import ถ้าต้องทำ harness เอง (เช่นด้วย `unittest.mock`) ต้อง patch ทุกโมดูลที่ถือ object นั้นอยู่
+- **`_name` is only a convention.** It hides nothing, but it still tells readers what outside code may use, and a linter warns when another module touches it. `from module import *` skips names that start with `_`, so check whether anything relies on `*`.
+- **Relative imports** (`from ..models import X`) change meaning when a file moves. Use absolute imports in the new layout.
+- **`from x import y` copies the reference.** Patching `x.y` later has no effect on a module that already imported `y`. That is why `scripts/parity.py` does not patch: it replaces every module outside the unit with a stub from the moment of import. If you build your own harness (for example with `unittest.mock`), you must patch every module that holds that object.
 
-## Payload และผลลัพธ์
+## Payloads and results
 
-- **ลำดับ key ของ dict คือลำดับที่ใส่** `{**a, **b}` ได้ key ของ `a` ก่อน แล้วตามด้วย key ใหม่ของ `b` JSON และ payload ที่ถูก log จะเรียงตามนี้ ต้องสร้าง literal ด้วยลำดับเดิม
-- **ข้อความ `traceback.format_exc()`** มี path ไฟล์และเลขบรรทัด จึงเปลี่ยนเสมอเมื่อย้ายโค้ด ให้รายงานเป็นความต่างที่เลี่ยงไม่ได้
-- **การเช็กค่าเท็จ** `x or ""` กับ `x if x else "-"` ให้ผลต่างกันเมื่อเป็น `0`, `""` และ `None` ต้องคัดลอกนิพจน์แบบเดิมทุกตัว ห้าม "ทำให้ง่ายขึ้น" จากแบบหนึ่งไปอีกแบบ
-- **`x != True` กับ `x == False` ไม่เท่ากัน** เมื่อ `x` เป็น `None` หรือ string อย่าง `"false"` ตัวแรกเป็นจริง ตัวหลังเป็นเท็จ เช่นเดียวกับ `d["k"]` (raise `KeyError`) กับ `d.get("k")` (คืน `None`) ก่อนรวมโค้ดที่ดูเหมือนซ้ำ ต้องเทียบทีละบรรทัด
+- **The key order of a dict is the order of insertion.** `{**a, **b}` gives the keys of `a` first, then the new keys of `b`. JSON and logged payloads follow this order. Build the literal in the original order.
+- **The text of `traceback.format_exc()`** contains file paths and line numbers, so it always changes when code moves. Report it as an unavoidable difference.
+- **Truthiness checks.** `x or ""` and `x if x else "-"` give different results for `0`, `""` and `None`. Copy each expression exactly. Never "simplify" from one form to the other.
+- **`x != True` and `x == False` are not the same** when `x` is `None` or a string such as `"false"`: the first is true, the second is false. The same goes for `d["k"]` (raises `KeyError`) and `d.get("k")` (returns `None`). Compare line by line before merging code that looks duplicated.

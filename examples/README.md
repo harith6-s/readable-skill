@@ -1,20 +1,22 @@
-# examples: โค้ดตัวอย่างที่ไม่ขึ้นกับใคร
+# examples: sample code that depends on nobody
 
-โค้ด Python ที่เขียนขึ้นเอง ใช้แค่ stdlib ไม่มีโค้ดหรือชื่อของบริษัทใด และไม่ต้องมี Django แต่ละโฟลเดอร์คือ 1 กรณีทดสอบ:
+Python code written for this purpose, using only the standard library. It holds no code or names of any company and needs no Django. Each folder is one test case:
 
 ```
-examples/<ชื่อ>/
-  case.json      ชื่อ, รูปร่าง (shape), โมดูลเดิม, scenarios, งาน (tasks), กิ่งที่ไม่มีใครเรียก (kept_branches), ก้อนที่ต้องเขียนที่เดียว (written_once), รหัสสถานะ (codes), ผลที่ควรได้
-  src/           โปรเจกต์ตัวอย่าง (นี่คือ import root)
-  scenarios.py   สถานการณ์สำหรับ parity.py
+examples/<name>/
+  case.json      name, shape, original module, scenarios, tasks, kept_branches (branches nobody calls), written_once (chunks that must be written in one place), codes (status codes), expected result
+  src/           the sample project (this is the import root)
+  scenarios.py   scenarios for parity.py
 ```
 
-| ตัวอย่าง | shape | ทดสอบอะไร | ผลที่ควรได้ |
+| Example | shape | What it tests | Expected result |
 |---|---|---|---|
-| `orders` | refactor | โมดูลเดียวที่มี 4 ขั้นตอนของ flow เดียว, helper ซ้อน 2 ชั้น, 3 flag ที่ไม่มีใครส่ง, ก้อนที่ซ้ำทั้งก้อนใน flow เดียว, ฟังก์ชัน pure ที่หลายขั้นตอนเรียก | แยกเป็นไฟล์ละงาน + `shared.py`, parity ว่าง; มี `golden/` เป็นเฉลยที่ถูก |
-| `statements` | refactor | class ที่ส่งงานผ่าน `self.rows` + subclass 1 ชั้น | `--check` ต้องไม่รายงาน state ผ่าน `self` หลัง rewrite |
-| `clean` | no-change | โค้ดที่อ่านง่ายอยู่แล้ว | Map ไม่เสนอการย้ายใดๆ แล้วหยุด |
-| `plugins` | list-by-hand | เรียก handler ด้วยชื่อตอนรัน (`getattr`) | ผู้ใช้ skill ต้องไล่ handler เองใน `map.md` และบอกที่ประตู |
-| `async_jobs` | unsupported | `async def` ที่ `await` | ประตู Map บอกว่า 1.x ไม่รองรับ แล้วหยุด |
+| `orders` | refactor | one module holding the 4 steps of one flow, helpers nested 2 deep, 3 flags nobody passes, a chunk that repeats whole within one flow, a pure function called from several steps | split into one file per task + `shared.py`, empty parity; `golden/` holds the correct answer |
+| `statements` | refactor | a class that passes work through `self.rows` + one subclass layer | `--check` must report no state through `self` after the rewrite |
+| `clean` | no-change | code that is already easy to read | the Map step proposes no moves and stops |
+| `plugins` | list-by-hand | handlers called by name at run time (`getattr`) | the skill's user must list the handlers by hand in `map.md` and say so at the gate |
+| `async_jobs` | unsupported | an `async def` that awaits | the Map gate says 1.x does not support it, and stops |
 
-เมื่อรองรับ async ใน 1.2 ให้เปลี่ยน `async_jobs` เป็น `refactor` (และเปลี่ยนข้อทดสอบใน `tests/` ที่ตรวจว่า `parity.py` ปฏิเสธ async)
+`clean` contains a few Thai string literals on purpose: they are sample data (a notice rendered in two languages), which also checks that non-ASCII text survives recording.
+
+When async is supported in 1.2, change `async_jobs` to `refactor` (and change the test in `tests/` that checks that `parity.py` refuses async).

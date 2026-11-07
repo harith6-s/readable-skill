@@ -1,255 +1,255 @@
 # readable
 
-> Agent Skill สำหรับ Claude Code ที่จัดโค้ดของงานหนึ่งงาน (request, background job, command) ให้อ่านจากบนลงล่างได้ในที่เดียว โดยพฤติกรรมไม่เปลี่ยน ใช้ได้ทั้งตอนจัดโครงโค้ดเดิม (refactor) และตอนเขียน feature ใหม่
+> An Agent Skill for Claude Code that arranges the code of one task (a request, a background job, a command) so it reads top to bottom in one place, without changing its behavior. It works both when reshaping existing code (refactor) and when writing a new feature.
 
-**เวอร์ชัน 1.1** · รองรับ Python 3.10 ขึ้นไป · ทดสอบกับโปรเจกต์ Django · สคริปต์ใช้ standard library อย่างเดียว
+**Version 1.1** · Python 3.10 or newer · tested on Django projects · the scripts use only the standard library
 
-## แก้ปัญหาอะไร
+## What problem it solves
 
-เวลาอ่านโค้ดที่ถูกแยกเป็นฟังก์ชันย่อยจำนวนมาก คนอ่านต้องกระโดดจากบรรทัด 74 ไป 145 ไป 300 แล้วลืมว่าค้างอะไรไว้ที่ 74 บางทีหาไม่เจอด้วยซ้ำว่าฟังก์ชันไหนคือจุดเริ่ม คนจำของพร้อมกันได้ราว 4-7 อย่าง การกระโดดซ้อนกันหลายชั้นจึงเกินกำลัง
+When code is split into many small functions, the reader jumps from line 74 to 145 to 300 and forgets what was left open at 74. Sometimes they cannot even find which function is the starting point. People hold about 4-7 things in mind at once, so several levels of nested jumps are too much.
 
-ปัญหานี้มาจากงานจริง โค้ด Django ของระบบที่ใช้งานอยู่มี 2 ขั้ว:
+The problem comes from real work. The Django code of a system in production has two extremes:
 
-| | ไฟล์ A | ไฟล์ B |
+| | File A | File B |
 |---|---|---|
-| ลักษณะ | บวมแต่อ่านเป็นเส้นตรง | แยกเป็นฟังก์ชันย่อยมาก |
-| ฟังก์ชัน | 12 | 50 |
-| ความลึกจากจุดเริ่ม | 1 | 3 |
-| ฟังก์ชันที่อาจต้องเปิดดู | 7 | 45 |
-| ปัญหา | โค้ดก้อนเดียวกันซ้ำ 5 ที่, เงื่อนไขซ้อนใน payload | payload ก้อนเดียวประกอบจาก 9 ฟังก์ชันและ `**` 10 จุด |
+| Shape | bloated but reads in a straight line | split into many small functions |
+| Functions | 12 | 50 |
+| Depth from the entry point | 1 | 3 |
+| Functions a reader may need to open | 7 | 45 |
+| Problem | the same chunk repeated in 5 places, conditions nested inside a payload | one payload assembled from 9 functions and 10 uses of `**` |
 
-ถ้าสั่ง AI แค่ "ช่วย refactor ให้อ่านง่าย" AI จะแยกฟังก์ชันเพิ่ม ทำให้ลึกขึ้นทั้งสองไฟล์ (ดู [ผลการทดสอบ](#ผลการทดสอบ))
+If you simply tell an AI "refactor this to make it readable", it splits out more functions, which makes both files deeper (see [Test results](#test-results)).
 
-## skill นี้ทำอะไร
+## What this skill does
 
-เป็น**กระบวนการที่มีด่านตรวจ** ไม่ใช่รายการคำแนะนำ ทุกขั้นต้องมีหลักฐานเป็นไฟล์หรือผลคำสั่งก่อนไปขั้นต่อไป และไม่ทำงานเอง ต้องเรียกด้วย `/readable` ทุกครั้ง (ตั้ง `disable-model-invocation: true` ไว้ เพราะเป็นงานที่แตะโค้ดหลายไฟล์)
+It is a **process with gates**, not a list of tips. Every step needs evidence (a file or a command result) before the next one starts, and it never runs by itself: you call it with `/readable` every time (`disable-model-invocation: true` is set, because it touches many files).
 
-| mode | ใช้เมื่อ | ขั้นตอน |
+| mode | Use when | Steps |
 |---|---|---|
-| `refactor` | จัดโครงโค้ดเดิม | Map → Clone → บันทึก baseline → เขียนใหม่ → ตรวจ → รายงาน (→ Integrate เฉพาะ `apply=replace`) |
-| `migrate` | ย้ายคนเรียกจากโค้ดเดิมไป V2 | อ่านรายงาน → เทียบโค้ดเดิมกับ V2 อีกรอบ → ย้ายเฉพาะคนเรียกที่เลือก → รันเทส → ลบของเดิมเมื่อ checklist ว่าง |
-| `new` | เขียน feature ใหม่ | หาของที่ reuse ได้ → โครง (ผู้ใช้อนุมัติ) → เขียน → เทส → ตรวจ → รายงาน |
+| `refactor` | reshaping existing code | Map → Clone → record the baseline → rewrite → verify → report (→ Integrate, only for `apply=replace`) |
+| `migrate` | moving callers from the old code to the V2 | read the report → compare the old code and the V2 again → move only the chosen callers → run the tests → delete the old code when the checklist is empty |
+| `new` | writing a new feature | find what can be reused → skeleton (the user approves) → write → test → verify → report |
 
-หลักที่ใช้ตัดสิน (รายละเอียดใน `references/style.md`):
-- จุดเริ่ม (entry point) คือเรื่องเล่า เป็นขั้นตอนที่มีเลขกำกับ เรียงตามลำดับที่รันจริง
-- กระโดดได้ไม่เกิน 1 ชั้น helper ของงานนั้นต้องเป็นปลายทาง ห้ามเรียก helper อีกตัว
-- การตัดสินใจทุกจุด (branch, raise, การเรียกออกไปข้างนอก, การเขียน DB) อยู่ในเรื่องเล่า
-- payload ที่ส่งออกไปเป็น literal ก้อนเดียวตรงจุดที่ส่ง ห้ามประกอบด้วย `**` และต้องคงลำดับ key
-- ห้ามเปลี่ยนพฤติกรรม แม้จะเป็นการแก้ให้ดีขึ้น เจอจุดแปลกให้ปัก `PIN(behavior)` แล้วรายงาน
-- ห้ามลบโค้ด แม้จะไม่มีใครเรียก ให้คงไว้แล้วปักหมุด
-- 1 ไฟล์ต่อ 1 งาน (ขั้นหนึ่งของ flow) ของที่หลายไฟล์ใช้อยู่ใน `shared.py` ซึ่งฟังก์ชันข้างในไม่เรียกกันเอง และไม่มี facade คนเรียก import จากไฟล์จริง
+The rules it decides by (details in `references/style.md`):
+- The entry point is the story: numbered steps in the order they really run.
+- At most one level of jump. A task's helper must be a leaf and must not call another helper.
+- Every decision (branch, raise, outbound call, DB write) is in the story.
+- A payload that is sent out is one literal at the point where it is sent. Never assemble it with `**`, and keep the key order.
+- Never change behavior, even to improve it. When you meet something odd, pin it with `PIN(behavior)` and report it.
+- Never delete code, even if nobody calls it. Keep it and pin it.
+- One file per task (one step of the flow). What several files use lives in `shared.py`, whose functions do not call each other. There is no facade: callers import from the real file.
 
-## โครงสร้าง
+## Structure
 
 ```
 readable/
-├── SKILL.md              กระบวนการและด่านตรวจ (ภาษาอังกฤษ ตัวที่ AI อ่าน)
+├── SKILL.md              the process and the gates (in English, this is what the AI reads)
 ├── references/
-│   ├── style.md          หน้าตาโค้ดที่ต้องการ, จุดยืนต่อหลัก clean code, ตัวอย่าง
-│   └── python.md         กับดักของ Python/Django เวลาย้ายหรือ inline โค้ด
+│   ├── style.md          what the code should look like, the stance on clean-code advice, examples
+│   └── python.md         traps of Python/Django when moving or inlining code
 ├── scripts/
-│   ├── jump_depth.py     แผนที่และตัวเลขของ unit: ความลึก, การเรียกออก, คนเรียก, --check
-│   └── parity.py         stub ทุกอย่างนอก unit แล้วบันทึกและเทียบพฤติกรรม (record, diff, coverage)
+│   ├── jump_depth.py     map and numbers of a unit: depth, outbound calls, callers, --check
+│   └── parity.py         stubs everything outside the unit, then records and compares behavior (record, diff, coverage)
 ├── eval/
-│   ├── reader.py         คนอ่านที่จำกัดงบ ใช้วัดว่าอ่านง่ายขึ้นจริงไหม
-│   └── reader_prompt.md  prompt ของ AI คนอ่าน
-├── th/                   คำแปลไทยของ SKILL.md และ style.md (ถ้าไม่ตรงกันให้ยึดฉบับอังกฤษ)
+│   ├── reader.py         the budget-limited reader, to measure whether the code really became easier to read
+│   └── reader_prompt.md  the prompt of the AI reader
 ├── CHANGELOG.md
 └── README.md
 ```
 
-## ติดตั้ง
+## Install
 
-ต้องมี Claude Code และ Python 3.10 ขึ้นไป (ทดสอบกับ 3.12) ไม่ต้องติดตั้ง package เพิ่ม
+You need Claude Code and Python 3.10 or newer (tested on 3.12). No extra package is needed.
 
 ```bash
-# ใช้ในโปรเจกต์เดียว
+# for one project
 git clone https://github.com/harith6-s/readable-skill.git .claude/skills/readable
 
-# หรือใช้ได้ทุกโปรเจกต์
+# or for every project
 git clone https://github.com/harith6-s/readable-skill.git ~/.claude/skills/readable
 ```
 
-- ชื่อโฟลเดอร์ต้องเป็น `readable` ให้ตรงกับ `name` ใน `SKILL.md`
-- ถ้าโปรเจกต์เป็น git repo อยู่แล้ว ให้ใช้ `git submodule add <url> .claude/skills/readable` แทน หรือใส่ `.claude/skills/readable/` ไว้ใน `.gitignore` ไม่อย่างนั้น repo ของโปรเจกต์จะมองโฟลเดอร์นี้เป็น repo ที่ฝังอยู่และไม่ track ไฟล์ข้างใน
-- เปิด Claude Code ใหม่ แล้ว `/readable` จะขึ้นในรายการ skill
-- `disable-model-invocation` กับ `argument-hint` ใน frontmatter เป็นส่วนขยายของ Claude Code ถ้าจะใช้กับเครื่องมืออื่นที่รับเฉพาะ field มาตรฐานของ Agent Skills ให้ลบ 2 บรรทัดนี้ (skill จะถูกเรียกเองได้เมื่อ description ตรงกับงาน)
+- The folder name must be `readable`, to match `name` in `SKILL.md`.
+- If the project is already a git repo, use `git submodule add <url> .claude/skills/readable` instead, or put `.claude/skills/readable/` in `.gitignore`. Otherwise the project's repo sees this folder as an embedded repo and does not track the files inside.
+- Reopen Claude Code and `/readable` appears in the list of skills.
+- `disable-model-invocation` and `argument-hint` in the frontmatter are Claude Code extensions. To use the skill with another tool that accepts only the standard Agent Skills fields, delete those 2 lines (the skill can then be invoked on its own when the description matches the task).
 
-## วิธีใช้
+## Usage
 
-### ใน Claude Code
+### In Claude Code
 
 ```
 /readable mode=refactor app/billing/services.py
 ```
 
-AI จะทำแผนที่ของไฟล์แล้วหยุดที่ด่าน Map ให้คุณอนุมัติ unit และ `apply` ก่อนเขียนโค้ด เมื่อจบจะได้ V2 ข้างไฟล์เดิม (ของเดิมไม่ถูกแตะ) และ `report.md` ที่บอกว่ายังมีใครเรียกโค้ดเดิมอยู่บ้าง จากนั้นย้ายคนเรียกด้วย `/readable mode=migrate <report.md>`
+The AI maps the file, then stops at the Map gate for you to approve the units and `apply` before it writes any code. When it finishes you get a V2 beside the original file (the original is untouched) and a `report.md` that says who still calls the old code. Then move the callers with `/readable mode=migrate <report.md>`.
 
 ```
-/readable mode=refactor <file หรือ folder> [apply=v2|replace] [out=<path>] [work=<folder>] [layout=A|B|AB] [depth=1-3] [style=auto|function|class]
+/readable mode=refactor <file or folder> [apply=v2|replace] [out=<path>] [work=<folder>] [layout=A|B|AB] [depth=1-3] [style=auto|function|class]
 /readable mode=migrate <report.md>
-/readable mode=new <สิ่งที่จะสร้างและที่อยู่>
+/readable mode=new <what to build and where>
 ```
 
-### ใช้สคริปต์เองโดยไม่ผ่าน Claude
+### Use the scripts yourself, without Claude
 
 ```bash
-# แผนที่และความลึก (รันจาก root ของ repo)
+# map and depth (run from the root of the repo)
 python .claude/skills/readable/scripts/jump_depth.py <file> --root <import root> --usage <repo dir>
-python .claude/skills/readable/scripts/jump_depth.py <file ใหม่> --root <import root> --usage <repo dir> --check
+python .claude/skills/readable/scripts/jump_depth.py <new file> --root <import root> --usage <repo dir> --check
 
-# บันทึกพฤติกรรมที่ขอบระบบของต้นฉบับกับเวอร์ชันใหม่ แล้วเทียบ (รันจาก import root เช่น application/ ของ Django)
+# record the behavior at the system boundary of the original and of the new version, then compare
+# (run from the import root, for example application/ of a Django project)
 python <skill>/scripts/parity.py record --unit <file> --root . --scenarios scenarios.py --out original.json
 python <skill>/scripts/parity.py diff original.json new.json
 ```
 
-flag ทั้งหมดและรูปแบบของ scenario ดูได้จาก `--help` ของแต่ละสคริปต์
+All the flags and the scenario format are in the `--help` of each script.
 
 ### Input / Output
 
-| Input | ความหมาย | ค่าเริ่มต้น |
+| Input | Meaning | Default |
 |---|---|---|
-| `mode` | `new`, `refactor`, `migrate` | ต้องระบุ |
-| target | `refactor`: ไฟล์หรือโฟลเดอร์ · `migrate`: path ของ report · `new`: สิ่งที่จะสร้างและที่อยู่ | ต้องระบุ |
-| `apply` | `v2` เขียนของใหม่แยก ของเดิมไม่แตะ / `replace` เขียนทับหลังอนุมัติ | `v2` |
-| `out` | ที่วางโค้ดใหม่ | ข้างโค้ดเดิม ชื่อติด `_v2` |
-| `work` | โฟลเดอร์หลักฐาน | `docs/readable/<unit>/` |
-| `layout`, `depth`, `style` | การจัดไฟล์, ความลึกของ payload ที่ต้องเห็น, class หรือ function | `A`, `3`, `auto` |
+| `mode` | `new`, `refactor`, `migrate` | required |
+| target | `refactor`: a file or folder · `migrate`: the path of the report · `new`: what to build and where | required |
+| `apply` | `v2` writes the new code apart, the original is untouched / `replace` overwrites after approval | `v2` |
+| `out` | where the new code goes | beside the original, named with `_v2` |
+| `work` | folder of the evidence | `docs/readable/<unit>/` |
+| `layout`, `depth`, `style` | file layout, how deep a payload must stay visible, class or function | `A`, `3`, `auto` |
 
 Output (mode refactor):
-- โค้ดใหม่ (V2) ที่ public surface เหมือนเดิม
-- `map.md` แผนที่ของงาน: จุดเริ่ม, คนเรียก, การเรียกออกไปข้างนอก, unit, ค่าที่ lint ของโปรเจกต์บังคับ
-- `scenarios.py` และ `recordings/` หลักฐานว่าพฤติกรรมเท่าเดิม
-- `report.md`: แผนที่จุดเริ่ม, ฟังก์ชันเดิมไปอยู่ที่ไหน, ตัวเลขก่อน/หลัง, ผล parity, หมุด, สิ่งที่ยังไม่ได้ตรวจ และ **checklist** (คนเรียกที่ยังใช้โค้ดเดิมพร้อม `file:line`, หมุดที่ค้าง, เทสที่ต้องลบ) ซึ่งสร้างจากการสแกนโค้ด ไม่ได้ติ๊กเอง
+- The new code (V2), with the same public surface.
+- `map.md`, the map of the task: entry points, callers, outbound calls, units, and the limits the project's lint enforces.
+- `scenarios.py` and `recordings/`, the evidence that behavior is the same.
+- `report.md`: the map of entry points, where each old function went, numbers before/after, the parity result, pins, what was not verified, and a **checklist** (callers still on the old code with `file:line`, open pins, tests to delete) that is generated from a scan of the code and never ticked by hand.
 
 ## Workflow (mode refactor)
 
-1. **Map:** `jump_depth.py` หาจุดเริ่ม, คนเรียก, การเรียกออกไปข้างนอก และ helper ที่โค้ดอื่นใช้ร่วม แล้วแบ่งเป็น unit อ่านค่าที่ lint/CI ของโปรเจกต์บังคับไว้ด้วย
-   **ด่าน:** มี `map.md` และผู้ใช้อนุมัติ unit, `apply` ของแต่ละ unit และวิธีรับมือกับ lint
-2. **Clone:** คัดลอกเป็น V2 (หรือเก็บสำเนาก่อนแก้ ถ้า `apply=replace`)
-   **ด่าน:** สำเนา import ได้
-3. **บันทึก baseline:** เขียน scenario อย่างน้อย 3 แบบต่อจุดเริ่ม (สำเร็จ, error ทางธุรกิจ, เรียกออกไปแล้วพัง) ทุกอย่างนอก unit เป็น stub ไม่มีการต่อ DB หรือ service จริง
-   **ด่าน:** diff ของสำเนาว่าง (แปลว่าเครื่องมือทำงานถูก) และทุกการเรียกออกถูก scenario เรียกถึง
-4. **เขียนใหม่** ตาม `references/style.md` สิ่งที่ยังตัดสินไม่ได้ให้ปักหมุด `PIN(integrate)` หรือ `PIN(behavior)`
-5. **ตรวจ:** diff กับต้นฉบับต้องว่าง, `jump_depth.py --check` ต้องผ่าน, public surface ต้องเหมือนเดิม
-   **ด่าน:** ทุกข้อผ่าน การอ่านโค้ดไม่นับเป็นการตรวจ
-6. **รายงาน:** เขียน `report.md` จบด้วย checklist แล้วหยุดรอผู้ใช้
-7. **Integrate** (เฉพาะ `apply=replace` หลังผู้ใช้อนุมัติ): เขียนทับของเดิม แล้วตรวจซ้ำและรันเทสเดิม
+1. **Map:** `jump_depth.py` finds the entry points, callers, outbound calls and the helpers other code shares, then divides the code into units. It also reads the limits that the project's lint/CI enforces.
+   **Gate:** `map.md` exists and the user has approved the units, the `apply` of each unit, and how to deal with lint.
+2. **Clone:** copy to a V2 (or keep a copy before editing, for `apply=replace`).
+   **Gate:** the copy imports.
+3. **Record the baseline:** write at least 3 scenarios per entry point (success, business error, an outbound call that fails). Everything outside the unit is a stub, and nothing connects to a real DB or service.
+   **Gate:** the diff of the copy is empty (which shows the tool works) and every outbound call is reached by a scenario.
+4. **Rewrite** by `references/style.md`. Pin what you cannot decide yet with `PIN(integrate)` or `PIN(behavior)`.
+5. **Verify:** the diff against the original must be empty, `jump_depth.py --check` must pass, and the public surface must be the same.
+   **Gate:** every check passes. Reading the code does not count as verification.
+6. **Report:** write `report.md`, ending with the checklist, then stop and wait for the user.
+7. **Integrate** (only `apply=replace`, after the user approves): overwrite the original, then verify again and run the existing tests.
 
-mode `migrate` และ `new` มีขั้นตอนและด่านของตัวเองใน `SKILL.md`
+Modes `migrate` and `new` have their own steps and gates in `SKILL.md`.
 
-## ใช้กับโปรเจกต์ไหนได้บ้าง
+## Which projects it works on
 
-| โปรเจกต์ | 1.x |
+| Project | 1.x |
 |---|---|
-| Python 3 ที่ไม่ใช่ async ทุก framework (Django, Flask, service หรือสคริปต์ธรรมดา) | รองรับ ทดสอบจริงกับโปรเจกต์ Django แล้ว ส่วนแบบอื่นยังไม่ได้ลอง |
-| Python ที่เรียกออกไปข้างนอกด้วย `await` (FastAPI, aiohttp) | ยังไม่รองรับ skill จะหยุดที่ขั้น Map |
-| ภาษาอื่น | ไม่รองรับใน 1.x skill จะหยุดที่ขั้น Map |
+| Python 3 that is not async, any framework (Django, Flask, a service or a plain script) | supported. Tested on a real Django project; other kinds have not been tried |
+| Python that makes outbound calls with `await` (FastAPI, aiohttp) | not supported yet. The skill stops at the Map step |
+| Other languages | not supported in 1.x. The skill stops at the Map step |
 
-- ตัวอย่างใน `references/style.md` เป็นโค้ดสมมติ ไม่ผูกกับโปรเจกต์ใด
-- ถ้าโปรเจกต์ตั้ง lint บังคับขนาดหรือความซับซ้อนของฟังก์ชันไว้ skill จะถามที่ด่าน Map ไม่ปิด lint เอง (ค่า default ของเครื่องมือที่โปรเจกต์ไม่ได้ตั้งไม่นับ)
-- ถ้าใน repo มีสำเนาของโค้ดที่กำลังศึกษาอยู่ ให้ `jump_depth.py` ข้ามด้วย `--exclude <folder>`
+- The examples in `references/style.md` are made-up code, not tied to any project.
+- If the project sets an enforced lint limit on function size or complexity, the skill asks at the Map gate and does not switch the lint off by itself. (A tool default that the project never configured does not count.)
+- If the repo holds copies of the code under study, have `jump_depth.py` skip them with `--exclude <folder>`.
 
-## ข้อจำกัด
+## Limits
 
-- **ช้าและแพงกว่า:** ต่อหนึ่ง run ใช้ token ราว 1.85 เท่า และเวลาราว 2.4 เท่าของ AI ที่ไม่มี skill
-- **ไฟล์ที่แบนอยู่แล้ว:** 1.1 ให้ขั้น Map แก้เฉพาะสิ่งที่ `--check` บอกว่าผิด แต่ยังไม่ได้ทดสอบซ้ำกับไฟล์แบบนี้
-- **test เดิมที่ import ของภายในจะพังตอน migrate:** skill ไม่นับ test เป็น public surface รายงานจะบอกรายชื่อ test ที่ต้องแก้
-- **ผลทดสอบมาจาก run ละครั้ง** และคะแนนคนอ่านให้โดยผู้ทดสอบที่ไม่ได้ปิดตา
-- **ไม่แตะโค้ดที่ผูกกับ framework** (view, serializer, model, routing, migration) โดยตั้งใจ
-- **การเรียกด้วยชื่อตอนรัน** (`getattr(obj, name)()`, dict ที่เก็บฟังก์ชัน) `jump_depth.py` มองไม่เห็น ตัวเลขความลึกจะต่ำกว่าจริง
-- **library ภายนอกทุกตัวถูกแทนด้วย stub** ยกเว้นที่สั่ง `--allow` โค้ดที่คำนวณหนักด้วย library (เช่น pandas) ต้อง allow ก่อน การเทียบจึงจะมีความหมาย
-- **parity ตรวจที่ขอบระบบ:** การเรียกออกพร้อม payload, ค่าที่ return และ error ไม่ได้ตรวจผลจากฐานข้อมูลจริง และครอบคลุมเท่าที่ scenario ครอบคลุม
-- ปัญหาที่รู้แล้วทั้งหมดอยู่ใน `CHANGELOG.md`
+- **Slower and more expensive:** one run uses about 1.85 times the tokens and about 2.4 times the time of an AI without the skill.
+- **A file that is already flat:** 1.1 lets the Map step fix only what `--check` says is wrong, but this has not been retested on such a file.
+- **Existing tests that import internals will break on migrate:** the skill does not count tests as public surface. The report lists the tests that must be fixed.
+- **The test results come from one run per setup,** and the reader scores were given by a tester who was not blinded.
+- **It does not touch code tied to a framework** (views, serializers, models, routing, migrations), on purpose.
+- **Calls made by name at run time** (`getattr(obj, name)()`, a dict that holds functions) are invisible to `jump_depth.py`. The depth numbers will be lower than the truth.
+- **Every external library is replaced by a stub** unless you pass `--allow`. Code that computes heavily with a library (such as pandas) must be allowed first, or the comparison means nothing.
+- **parity checks at the system boundary:** the outbound calls with their payloads, the return values and the errors. It does not check what a real database would hold, and it covers only what the scenarios cover.
+- All the known problems are in `CHANGELOG.md`.
 
-## ผลการทดสอบ
+## Test results
 
-### รอบที่ 1 (1.0): วิธีทดสอบ
+### Round 1 (1.0): method
 
-- **เป้าหมาย:** ไฟล์ A (แบนอยู่แล้ว) และไฟล์ B (แยกฟังก์ชันมากเกินไป) จากโปรเจกต์ Django ที่ใช้งานจริง
-- **ชุดเทียบ:** AI ไม่มี skill กับ AI ที่ใช้ skill, ทั้ง Sonnet และ Opus, ใช้ prompt เดียวกันทุกตัวอักษร, agent ใหม่ทุก run, อนุมัติด่านล่วงหน้าเพื่อให้ได้โค้ดมาวัด
-- **ทดสอบด่าน:** อีก 1 run ไม่อนุมัติล่วงหน้า ดูว่าหยุดที่ด่าน Map จริงไหม
-- **วัดผล 2 ชั้น:**
-  1. ตัวเลขจาก `jump_depth.py` และ parity ด้วย scenario ที่ผู้ทดสอบเขียนเอง (ไฟล์ A 7 ตัว, ไฟล์ B 6 ตัว) ไม่ใช้ scenario ที่ agent เขียน
-  2. AI คนอ่านที่จำกัดงบ (`eval/reader.py`): เปิดดูได้ทีละฟังก์ชัน ไม่เกิน 8 ครั้ง ตอบคำถาม 6 ข้อที่มีเฉลยยืนยันจากการบันทึกจริง ใช้ Haiku และ Sonnet
-- ใช้โครงการทดสอบของ skill-creator (`benchmark.json`, หน้ารีวิว)
+- **Targets:** file A (already flat) and file B (split into too many functions) from a Django project in production.
+- **Comparison:** an AI without the skill against an AI with the skill, both Sonnet and Opus, with the same prompt letter for letter, a new agent for every run, and the gates approved in advance so that code could be measured.
+- **Gate test:** one more run without approving in advance, to see whether it really stops at the Map gate.
+- **Two layers of measurement:**
+  1. The numbers from `jump_depth.py`, and parity with scenarios that the tester wrote (7 for file A, 6 for file B), not scenarios written by the agent.
+  2. A budget-limited AI reader (`eval/reader.py`): it can open one function at a time, at most 8 times, and answers 6 questions whose answers were confirmed from real recordings. Haiku and Sonnet were used.
+- It used skill-creator's test setup (`benchmark.json`, the review page).
 
-### รอบที่ 1: ผล
+### Round 1: results
 
-| | ไม่ใช้ skill | ใช้ skill |
+| | without the skill | with the skill |
 |---|---|---|
-| ผ่านเกณฑ์ทั้งหมด (4 run × 6 ข้อ) | 14/24 = 58% | **22/24 = 92%** |
-| พฤติกรรมเท่าเดิม (parity) | 4/4 | 4/4 |
-| ความลึกไม่เกิน 1 | **0/4** | **4/4** |
-| หยุดที่ด่าน Map เมื่อไม่ได้อนุมัติ | - | หยุดจริง |
-| ต้นทุนเฉลี่ยต่อ run | 162k token, 9.4 นาที | 299k token, 22.4 นาที |
+| Passed every criterion (4 runs × 6 criteria) | 14/24 = 58% | **22/24 = 92%** |
+| Behavior unchanged (parity) | 4/4 | 4/4 |
+| Depth at most 1 | **0/4** | **4/4** |
+| Stops at the Map gate when not approved | - | really stopped |
+| Average cost per run | 162k tokens, 9.4 min | 299k tokens, 22.4 min |
 
-| | ต้นฉบับ | ไม่ใช้ skill (Sonnet / Opus) | ใช้ skill (Sonnet / Opus) |
+| | original | without the skill (Sonnet / Opus) | with the skill (Sonnet / Opus) |
 |---|---|---|---|
-| ไฟล์ A: ลึก / ฟังก์ชันที่อาจต้องเปิดดู | 1 / 7 | 4 / 25, 4 / 26 | 1 / 12, 1 / 10 |
-| ไฟล์ B: ลึก / ฟังก์ชันที่อาจต้องเปิดดู | 3 / 45 | 4 / 49, 3 / 53 | 1 / 28, 1 / 29 |
-| ไฟล์ B: import ที่ซ่อนในฟังก์ชัน | 21 | 21, 21 | 5, 5 |
-| คนอ่านไฟล์ A, Haiku: คะแนน (เต็ม 12) / ครั้งที่เปิด | 12 / 1 | 10 / 7, 12 / 7 | 12 / 4, 12 / 4 |
-| คนอ่านไฟล์ A, Sonnet | 12 / 2 | 11 / 8, 12 / 8 | 12 / 4, 12 / 4 |
-| คนอ่านไฟล์ B, Haiku | 11 / 5 | 9 / 7, 11 / 8 | 12 / 1, 11 / 1 |
-| คนอ่านไฟล์ B, Sonnet | 11 / 8 | 11 / 8, 11 / 8 | 12 / 5, 12 / 6 |
+| File A: depth / functions that may need opening | 1 / 7 | 4 / 25, 4 / 26 | 1 / 12, 1 / 10 |
+| File B: depth / functions that may need opening | 3 / 45 | 4 / 49, 3 / 53 | 1 / 28, 1 / 29 |
+| File B: imports hidden inside functions | 21 | 21, 21 | 5, 5 |
+| Reader on file A, Haiku: score (out of 12) / times opened | 12 / 1 | 10 / 7, 12 / 7 | 12 / 4, 12 / 4 |
+| Reader on file A, Sonnet | 12 / 2 | 11 / 8, 12 / 8 | 12 / 4, 12 / 4 |
+| Reader on file B, Haiku | 11 / 5 | 9 / 7, 11 / 8 | 12 / 1, 11 / 1 |
+| Reader on file B, Sonnet | 11 / 8 | 11 / 8, 11 / 8 | 12 / 5, 12 / 6 |
 
-สรุป:
-- AI ที่ไม่มี skill รักษาพฤติกรรมได้ แต่ทำให้โค้ด**ลึกขึ้น**ทุกครั้ง เพราะเข้าใจคำว่า "อ่านง่าย" ว่าคือ "แยกฟังก์ชันเพิ่ม"
-- skill ได้ผลชัดกับโค้ดที่แยกฟังก์ชันมากเกินไป (ไฟล์ B): คนอ่านเปิดน้อยลงและได้คะแนนเท่าเดิมหรือดีขึ้น คำถามที่ต่างชัดที่สุดคือเงื่อนไขที่ต้นฉบับซ่อนไว้ลึก 3 ชั้น แต่เวอร์ชัน skill เห็นได้ในเรื่องเล่า
-- **กับโค้ดที่แบนอยู่แล้ว (ไฟล์ A) ไม่มีเวอร์ชันไหนดีกว่าต้นฉบับ** เวอร์ชัน skill ดีกว่าเวอร์ชันที่ไม่ใช้ skill แต่ยังแตกไฟล์จนต้องเปิดเพิ่ม เป็นปัญหาข้อแรกที่จะแก้ใน 1.1
-- คนอ่านทั้ง 2 model เรียงลำดับเวอร์ชันได้ตรงกัน
+Summary:
+- An AI without the skill keeps behavior but makes the code **deeper** every time, because it reads "easy to read" as "split out more functions".
+- The skill clearly helps on code that is split into too many functions (file B): the reader opens fewer functions and scores the same or better. The question that differs most is a condition that the original hides 3 levels deep but that the skill's version shows in the story.
+- **On code that is already flat (file A), no version beats the original.** The skill's version beats the version without the skill, but it still splits files so the reader has to open more. This was the first problem to fix in 1.1.
+- The readers of both models ranked the versions in the same order.
 
-ข้อจำกัดของผลชุดนี้: รันครั้งเดียวต่อชุด, คะแนนคนอ่านให้โดยคนที่รู้ว่าคำตอบไหนมาจากเวอร์ชันไหน (ไม่ได้ปิดตา), ยังไม่มีผลจากคนอ่านที่เป็นคนจริง
+Limits of this set of results: one run per setup, reader scores given by someone who knew which answer came from which version (not blinded), and no results yet from a real human reader.
 
-### รอบที่ 2-4 (1.1): แยกไฟล์ตามงาน
+### Rounds 2-4 (1.1): files split by task
 
-ผู้ดูแลรีวิวผลของ 1.0 กับไฟล์ B แล้วเห็นว่าควรแยกไฟล์ตามงาน (ทำเอกสารร่าง, ทำเอกสารฉบับสุดท้าย, งานแก้ขั้นที่ค้าง) 1.1 จึงเพิ่มกฎการจัดไฟล์และให้ `--check` ตรวจ ทุกรอบใช้ไฟล์ B กับ Sonnet รันแบบละครั้ง และเพิ่มชุดคำถาม 3 ข้อที่ถามเอกสารชิ้นเดียวข้ามสองรอบ (ตอนร่างกับตอนลงนาม) งบเปิด 6 ครั้ง ทุกครั้งที่ปรับกฎ เกณฑ์ใหม่ถูกใช้ตรวจย้อนหลังกับทุกเวอร์ชันเหมือนกัน
+The maintainer reviewed the 1.0 results on file B and saw that the files should be split by task (making the draft document, making the final document, the work that repairs a stuck step). So 1.1 added a file-layout rule and made `--check` verify it. Every round used file B with Sonnet, one run each, and added a set of 3 questions about a single document across two stages (the draft stage and the signing stage), with an opening budget of 6. Every time the rules were adjusted, the new criteria were applied retroactively to every version in the same way.
 
-| | 1.0 | 1.1 รอบที่ 2 | 1.1 รอบที่ 3 | 1.1 รอบที่ 4 |
+| | 1.0 | 1.1 round 2 | 1.1 round 3 | 1.1 round 4 |
 |---|---|---|---|---|
-| สิ่งที่เปลี่ยน | - | กฎการจัดไฟล์ | นิยามของ "งาน" | กฎห้ามลบเขียนให้ชัด |
-| ผ่านเกณฑ์ (11 ข้อ) | 8 | 10 | 10 | **11** |
-| ไฟล์ | 2 | 6 (แยกละเอียดเกิน) | 4 | 4 |
-| ทุกงานอยู่ไฟล์ของตัวเอง | ไม่ | ไม่ | ใช่ | ใช่ |
-| คงโค้ดที่ไม่มีใครเรียก | ไม่ | ใช่ | ไม่ | ใช่ |
-| คนอ่าน Haiku ชุดเดิม: คะแนน / ครั้งที่เปิด | 12 / 1 | 12 / 4 | 12 / 5 | 12 / 5 |
-| คนอ่าน Haiku ชุดรายเอกสาร (เต็ม 6) | 6 / 2 | 6 / 4 | 6 / 3 | 6 / 2 |
-| token / เวลา | 268k / 16.6 นาที | 272k / 14.4 นาที | 232k+ / 10.6+ นาที | 236k / 13.2 นาที |
+| What changed | - | file layout rule | the definition of a "task" | the never-delete rule made clear |
+| Passed criteria (of 11) | 8 | 10 | 10 | **11** |
+| Files | 2 | 6 (split too finely) | 4 | 4 |
+| Every task in its own file | no | no | yes | yes |
+| Kept the code nobody calls | no | yes | no | yes |
+| Haiku reader, original question set: score / times opened | 12 / 1 | 12 / 4 | 12 / 5 | 12 / 5 |
+| Haiku reader, per-document question set (out of 6) | 6 / 2 | 6 / 4 | 6 / 3 | 6 / 2 |
+| tokens / time | 268k / 16.6 min | 272k / 14.4 min | 232k+ / 10.6+ min | 236k / 13.2 min |
 
-ต้นฉบับของไฟล์ B ได้ 11/12 (เปิด 5 ครั้ง) ในชุดเดิม และ **1/6** ในชุดรายเอกสาร เพราะใช้การเปิดหมดไปกับฝั่งตอนร่าง ตัวเลขของรอบที่ 3 มีแค่ช่วงหลังติดลิมิต รอบที่ 2 ทดสอบ layout `AB` ด้วย ผ่านครบ 11 ข้อตั้งแต่รอบนั้น แต่ย้ายไปไฟล์เอกสารแค่ตัวสร้างตอนลงนาม ตอนร่างยังอยู่ใน story และคนอ่านทำได้ใกล้เคียง `A` (Haiku 12/2 และ 5/6) ไม่ได้ดีกว่าชัดเจน `A` จึงยังเป็นค่าเริ่มต้น
+The original of file B scored 11/12 (5 openings) on the original set, and **1/6** on the per-document set, because it spent its openings on the draft stage. The round-3 numbers cover only the period after the usage limit was hit. Round 2 also tested layout `AB`. It passed all 11 criteria from that round on, but it moved only the signing-stage builder into the document file and the draft stage stayed in the story, and the readers did about as well as with `A` (Haiku 12/2 and 5/6), so it was not clearly better. `A` therefore stays the default.
 
-สรุป:
-- 1.1 รอบที่ 4 ทำครบทุกกฎ: แยกไฟล์ตามงาน คงโค้ดที่ไม่มีใครเรียก payload ทุกก้อนเห็นทั้งก้อนตรงจุดที่ส่ง และพฤติกรรมเท่าเดิมทุก scenario
-- คนอ่านได้คะแนนเต็มกับทุกเวอร์ชันของ skill แต่การแยกไฟล์ไม่ได้ทำให้เปิดน้อยกว่า 1.0 ที่เป็นไฟล์เดียว ในชุดเดิมเปิดมากกว่า เพราะคนอ่านเปิด `shared.py` ตรวจซ้ำ ข้อนี้ต้องรันหลายครั้งก่อนสรุป
+Summary:
+- 1.1 round 4 followed every rule: files split by task, the code nobody calls kept, every payload visible whole at the point where it is sent, and behavior unchanged in every scenario.
+- The readers scored full marks on every version of the skill, but splitting files did not make them open fewer files than 1.0, which is a single file. On the original set they opened more, because the reader opened `shared.py` to check again. This needs several runs before concluding.
 
-หลักฐานดิบ (โค้ดที่แต่ละ run เขียน, การบันทึก parity, ชุดคำถามและเฉลย, คำตอบของคนอ่าน) อ้างถึงโค้ดของบริษัท จึงไม่ได้อยู่ใน repo นี้
+The raw evidence (the code each run wrote, the parity recordings, the question sets and answers, the readers' answers) refers to company code, so it is not in this repo.
 
-### วัดผลกับโค้ดของคุณเอง
+### Measure it on your own code
 
-1. ให้ AI ที่ไม่มี skill กับ AI ที่มี skill refactor ไฟล์เดียวกันด้วย prompt เดียวกัน ใช้ agent ใหม่ทุกครั้ง
-2. รัน `jump_depth.py` กับต้นฉบับและทุกเวอร์ชัน แล้วเทียบ `max_depth`, `local_depth` และจำนวนฟังก์ชันที่ไปถึงได้
-3. เขียน scenario เอง แล้วใช้ `parity.py record` กับต้นฉบับและแต่ละเวอร์ชัน จากนั้น `parity.py diff`
-4. คนอ่าน: `eval/reader.py build` ทีละเวอร์ชัน แล้วส่ง `eval/reader_prompt.md` ให้ agent ใหม่ต่อเวอร์ชัน ให้คะแนนด้วยเฉลย และดูจำนวนครั้งที่เปิดจาก `reader.py report`
+1. Have an AI without the skill and an AI with the skill refactor the same file with the same prompt, using a new agent every time.
+2. Run `jump_depth.py` on the original and on every version, and compare `max_depth`, `local_depth` and the number of functions reachable.
+3. Write the scenarios yourself, then use `parity.py record` on the original and on each version, and then `parity.py diff`.
+4. The reader: run `eval/reader.py build` for each version, then give `eval/reader_prompt.md` to a new agent per version. Score with the answer key and see the number of openings from `reader.py report`.
 
-## เวอร์ชันและการถอยกลับ
+## Versions and rollback
 
-เลขเวอร์ชันอยู่ที่ `metadata.version` ใน `SKILL.md` ทุกเวอร์ชันบันทึกใน `CHANGELOG.md` และติด git tag (`v1.0`, `v1.1`, ...) เมื่อเข้า `main`
+The version number is in `metadata.version` in `SKILL.md`. Every version is recorded in `CHANGELOG.md` and gets a git tag (`v1.0`, `v1.1`, ...) when it goes into `main`.
 
-**จะรู้ได้อย่างไรว่าเวอร์ชันใหม่ดีขึ้นหรือแย่ลง:** รันชุดทดสอบเดิมกับเวอร์ชันใหม่ เทียบกับเวอร์ชันเก่าแบบตัวต่อตัว (skill-creator เรียกว่า `new_skill` กับ `old_skill`) เวอร์ชันใหม่ต้องผ่านทุกข้อนี้:
-- parity, public surface และไฟล์ต้นฉบับไม่ถูกแตะ: ผ่าน 100% เหมือนเดิม
-- ความลึกไม่เกิน 1: ผ่าน 100%
-- ตัวทดสอบด่าน: ยังหยุดที่ Map
-- คนอ่าน (Haiku และ Sonnet): คะแนนไม่ลดลง และจำนวนครั้งที่เปิดไม่เพิ่มขึ้น
-- ต้นทุน: ไม่เพิ่มขึ้นเกินกว่าที่ตกลงกัน
-- รันอย่างน้อย 2 ครั้งต่อชุดก่อนสรุป เพราะผลของ AI แกว่งได้
+**How to tell whether a new version is better or worse:** run the same test set on the new version and compare it head to head with the old one (skill-creator calls them `new_skill` and `old_skill`). The new version must pass all of these:
+- parity, public surface, and untouched original files: 100% pass, as before
+- depth at most 1: 100% pass
+- the gate test: still stops at Map
+- the readers (Haiku and Sonnet): the score does not drop and the number of openings does not rise
+- cost: does not rise beyond what was agreed
+- at least 2 runs per set before concluding, because AI results fluctuate
 
-**ถอยกลับ:** ถ้าติดตั้งด้วย `git clone` ให้รัน `git checkout v1.0` ในโฟลเดอร์ของ skill ถ้าเป็น submodule ให้ checkout tag ใน submodule แล้ว commit ที่โปรเจกต์
+**Rollback:** if you installed with `git clone`, run `git checkout v1.0` in the skill's folder. With a submodule, check out the tag in the submodule and commit in the project.
 
-## อ้างอิง
+## References
 
-- Martin Fowler, *Refactoring* (2nd ed., 2018): นิยามของ refactoring คือเปลี่ยนโครงสร้างโดยไม่เปลี่ยนพฤติกรรม, Inline Function
-- Michael Feathers, *Working Effectively with Legacy Code* (2004): characterization test คือบันทึกพฤติกรรมเดิม รวมถึงที่ผิด ก่อนแก้
-- Martin Fowler, [Strangler Fig Application](https://martinfowler.com/bliki/StranglerFigApplication.html) และ Danilo Sato, [Parallel Change](https://martinfowler.com/bliki/ParallelChange.html): ที่มาของ V2 แล้วค่อยย้ายคนเรียก
-- John Ousterhout, *A Philosophy of Software Design*: deep module กับ shallow module และ [บทโต้แย้งกับ Robert Martin](https://github.com/johnousterhout/aposd-vs-clean-code) เรื่องความยาวของฟังก์ชัน
-- Anthropic skill-creator และ superpowers `writing-skills`: วิธีสร้างและทดสอบ skill (รัน baseline ก่อนเขียน, เทียบมีกับไม่มี skill)
+- Martin Fowler, *Refactoring* (2nd ed., 2018): the definition of refactoring as changing structure without changing behavior, and Inline Function.
+- Michael Feathers, *Working Effectively with Legacy Code* (2004): a characterization test records the existing behavior, including the wrong parts, before changing it.
+- Martin Fowler, [Strangler Fig Application](https://martinfowler.com/bliki/StranglerFigApplication.html) and Danilo Sato, [Parallel Change](https://martinfowler.com/bliki/ParallelChange.html): where "write the V2 first, then move the callers" comes from.
+- John Ousterhout, *A Philosophy of Software Design*: deep and shallow modules, and [the debate with Robert Martin](https://github.com/johnousterhout/aposd-vs-clean-code) about the length of functions.
+- Anthropic skill-creator and superpowers `writing-skills`: how to build and test a skill (run a baseline before writing, compare with and without the skill).

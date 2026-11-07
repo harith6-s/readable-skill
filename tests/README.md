@@ -1,27 +1,27 @@
-# tests: ตัวสคริปต์ทดสอบตัวเอง
+# tests: the scripts test themselves
 
-ไม่ต้องติดตั้งอะไร (Python 3.10+ และ `unittest` ของ stdlib) รันที่ราก repo:
+Nothing to install (Python 3.10+ and the standard library's `unittest`). Run from the root of the repo:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-| ไฟล์ | ทดสอบอะไร |
+| File | What it tests |
 |---|---|
-| `test_jump_depth.py` | ความลึก, กฎการเรียงไฟล์ (helper ใต้ผู้เรียก, `shared.py`, facade), hidden import, `--callers`, `--exclude`, `--forbid`, state ผ่าน `self` |
-| `test_parity.py` | บันทึก/เทียบ, ปฏิเสธโค้ด async, ค่าคงที่จากซอร์ส, เวลา/uuid ถูกแช่แข็ง, stdlib ฝั่งเครือข่ายถูก stub, `.pure()`, decorator ของ task, `coverage` |
-| `test_grade.py` | ตัวตรวจ `eval/grade.py`: เฉลยที่ถูก (`examples/orders/golden`) ต้องผ่านครบ และเฉลยที่ถูกทำให้ผิดทีละแบบต้องล้มเฉพาะข้อที่ควรล้ม |
-| `test_examples.py` | รูปร่างของแต่ละ `examples/*`: ตัวอย่างต้องบันทึกซ้ำได้ผลเดิม (ยกเว้น shape `unsupported` ที่ต้องถูกปฏิเสธ), ไม่มีคำที่บ่งบอกโค้ดบริษัท |
+| `test_jump_depth.py` | depth, file layout rules (helper below its caller, `shared.py`, facade), hidden imports, `--callers`, `--exclude`, `--forbid`, state through `self` |
+| `test_parity.py` | record/diff, refusing async code, constants from source, frozen time/uuid, stubbed network parts of the standard library, `.pure()`, task decorators, `coverage` |
+| `test_grade.py` | the grader `eval/grade.py`: the correct golden answer (`examples/orders/golden`) must pass every check, and the golden answer broken one way at a time must fail only the check that is meant to catch it |
+| `test_examples.py` | the shape of each `examples/*`: an example must record the same result twice (except shape `unsupported`, which must be refused), and no word that points to company code |
 
-## ข้อจำกัดที่รู้แล้ว (ตรึงไว้ทั้ง 2 ทาง)
+## Known limits (pinned both ways)
 
-ชื่อ `test_known_limit_*` ตรึงพฤติกรรมปัจจุบันของ 1.x คู่กับ `@unittest.expectedFailure` ที่เป็นพฤติกรรมที่ต้องการ
-วันที่แก้สคริปต์แล้ว ข้อ `expectedFailure` จะ "ผ่านโดยไม่คาดคิด" ให้สลับคู่นั้น
+A test named `test_known_limit_*` pins the current behavior of 1.x, paired with an `@unittest.expectedFailure` test that states the wanted behavior.
+The day the script is fixed, the `expectedFailure` test "passes unexpectedly": swap that pair.
 
-| ข้อจำกัด | ที่ตรึงไว้ |
+| Limit | Where it is pinned |
 |---|---|
-| `getattr(stubbed_module, name, None)` ไม่เคยได้ `None` ทำให้กิ่ง "ไม่พบ" ถึงไม่ได้ | `test_parity.KnownLimits` |
-| เรียกด้วยชื่อตอนรัน: แผนที่มองไม่เห็นตัวที่ถูกเรียก `--check` จึงบอก OK | `test_examples.Shapes` |
-| ไฟล์ `tests.py` แบบ Django นับเป็นผู้เรียกฝั่ง production | `test_jump_depth.KnownLimits` |
+| `getattr(stubbed_module, name, None)` never returns `None`, so the "not found" branch cannot be reached | `test_parity.KnownLimits` |
+| Calls by name at run time: the map cannot see what is called, so `--check` says OK | `test_examples.Shapes` |
+| A Django-style `tests.py` file counts as a production caller | `test_jump_depth.KnownLimits` |
 
-ใช้ `READABLE_SCRIPTS=/path/to/scripts` ถ้าสคริปต์ไม่ได้อยู่ที่ `../scripts`
+Set `READABLE_SCRIPTS=/path/to/scripts` if the scripts are not at `../scripts`.

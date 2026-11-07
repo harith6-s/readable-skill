@@ -1,201 +1,204 @@
-# การพัฒนา readable
+# Developing readable
 
-ไฟล์นี้สำหรับคนหรือ AI ที่จะพัฒนา skill นี้ต่อ ไม่ใช่ส่วนของ skill (ตัว skill คือ `SKILL.md`, `references/`, `scripts/`)
+This file is for a person or an AI who will keep developing this skill. It is not part of the skill (the skill is `SKILL.md`, `references/`, `scripts/`).
 
-## อ่านก่อนเริ่ม
+## Read before you start
 
-ถ้าคุณเป็น AI ที่เพิ่งเปิด session ใหม่ใน repo นี้ ให้อ่านตามลำดับนี้ก่อนทำอะไร:
+If you are an AI that has just opened a new session in this repo, read these in order before doing anything:
 
-1. ไฟล์นี้
-2. `CHANGELOG.md` (ส่วน "ปัญหาที่รู้แล้ว")
-3. `SKILL.md` แล้วตามด้วย `references/style.md`
+1. This file
+2. `CHANGELOG.md` (the "Known problems" section)
+3. `SKILL.md`, then `references/style.md`
 
-**ห้ามสร้าง `CLAUDE.md` ใน repo นี้** เพราะ repo จะถูก clone ไปไว้ที่ `.claude/skills/readable` ในโปรเจกต์ของคนอื่น แล้ว `CLAUDE.md` ที่ซ้อนอยู่อาจถูกโหลดเข้าไปในโปรเจกต์นั้น บันทึกสำหรับนักพัฒนาให้ใส่ในไฟล์นี้
+**Never create a `CLAUDE.md` in this repo.** The repo is cloned into `.claude/skills/readable` inside other people's projects, and a nested `CLAUDE.md` could be loaded into that project. Put notes for developers in this file.
 
-### ข้อตกลงกับผู้ดูแล
+### Agreements with the maintainer
 
-- ตอบเป็นภาษาไทย ใช้ศัพท์เทคนิคอังกฤษได้ ห้ามมีภาษาอื่น
-- คุยให้จบก่อน ห้ามเลือกตัวเลือกแทนผู้ดูแล และห้ามเขียนไฟล์จนกว่าจะได้รับคำสั่ง
-- เถียงกลับได้ ถ้าคำสั่งไม่สมเหตุสมผล
-- git: ที่ผ่านมาผู้ดูแลรัน git เองทุกครั้ง ถามก่อนรันคำสั่ง git ทุกคำสั่ง
-- repo นี้เป็น public ห้ามใส่โค้ด ชื่อ path หรือค่าใดๆ ของบริษัทหรือโปรเจกต์จริง ตัวอย่างทุกชิ้นต้องแต่งขึ้นเอง (`tests/test_examples.py` ตรวจคำต้องห้ามบางคำให้แล้ว)
-- รายงานผลตามจริง: ทดสอบไม่ผ่านให้บอกพร้อมผลลัพธ์ ข้ามขั้นไหนให้บอก
+- Reply to the maintainer in Thai; English technical terms are fine, no other language. This applies to the chat only. Everything written in the repo is in English (decision 19).
+- Talk it through first. Never choose an option in the maintainer's place, and never write a file until you are told to.
+- You may push back when an instruction does not make sense.
+- git: so far the maintainer has run git every time. Ask before running any git command, unless the maintainer has said you may for the task at hand.
+- This repo is public. Never put code, paths or values of a real company or project into it. Every example must be made up (`tests/test_examples.py` already checks some forbidden words).
+- Report results truthfully: if a test fails, say so with the output; if you skipped a step, say so.
 
-## branch และเวอร์ชัน
+## Branch and version
 
-- พัฒนาบน `dev` แล้วเข้า `main` และติด tag `vX.Y` เมื่อผู้ดูแลพอใจ (ตอนออก 1.1 ยังไม่มี `main`)
-- เวอร์ชันอยู่ที่ `metadata.version` ใน `SKILL.md` และ `th/SKILL.th.md` และบันทึกการเปลี่ยนแปลงใน `CHANGELOG.md`
-- ถ้าแก้ `SKILL.md` หรือ `references/style.md` ต้องแก้ฉบับแปลใน `th/` ด้วย ฉบับอังกฤษคือตัวที่ AI อ่าน
-- ตั้งแต่ 2026-11-07 repo นี้คือต้นฉบับเดียว ก่อนหน้านี้พัฒนาในโปรเจกต์อื่นแล้ว rsync มาที่นี่
+- Develop on `dev`, then merge into `main` and tag `vX.Y` when the maintainer is satisfied (there was no `main` when 1.1 came out).
+- The version is in `metadata.version` of `SKILL.md`, and the changes are recorded in `CHANGELOG.md`.
+- `SKILL.md` and `references/` are written in English because an AI reads them. There is no translation (`th/` was removed on 2026-11-08; the old translations are in the git history).
+- Since 2026-11-07 this repo is the only original. Before that the skill was developed in another project and rsynced here.
 
-## โครง repo
+## Repo layout
 
-| ส่วน | ของใคร | อะไร |
+| Part | Whose | What |
 |---|---|---|
-| `SKILL.md`, `references/`, `scripts/`, `th/` | skill | ส่วนที่ผู้ใช้ skill ได้ไปใช้จริง |
-| `eval/reader.py`, `eval/reader_prompt.md` | เครื่องมือวัด | AI คนอ่านที่จำกัดงบ |
-| `eval/prepare.py`, `eval/grade.py` | เครื่องมือวัด | ทำสำเนาให้ agent และตรวจผล refactor 11 ข้อ (ดู `eval/README.md`) |
-| `examples/` | นักพัฒนา | โปรเจกต์สังเคราะห์ 5 รูปแบบ (ดู `examples/README.md`) |
-| `tests/` | นักพัฒนา | ทดสอบตัวสคริปต์และตัวตรวจ (ดู `tests/README.md`) |
+| `SKILL.md`, `references/`, `scripts/` | skill | the part that users of the skill actually get |
+| `eval/reader.py`, `eval/reader_prompt.md` | measuring tools | the budget-limited AI reader |
+| `eval/prepare.py`, `eval/grade.py` | measuring tools | make a copy for an agent, and grade a refactor with 11 checks (see `eval/README.md`) |
+| `examples/` | developers | 5 synthetic projects of different shapes (see `examples/README.md`) |
+| `tests/` | developers | tests of the scripts and the grader (see `tests/README.md`) |
 
-**คำถามที่ยังเปิด:** `git clone` เอาโฟลเดอร์ของนักพัฒนาไปให้ผู้ใช้ด้วย ตอนนี้ไม่เป็นอันตราย เพราะ Claude อ่านแค่ `SKILL.md` กับไฟล์ที่ skill อ้างถึง และ pytest ข้ามโฟลเดอร์ที่ขึ้นต้นด้วยจุด แต่ก็ทำให้ขนาดใหญ่ขึ้น จะแยกหรือไม่ ผู้ดูแลยังไม่ได้ตัดสินใจ
+**Open question:** `git clone` hands the developer folders to the users too. Today this does no harm, because Claude reads only `SKILL.md` and the files the skill refers to, and pytest skips folders that start with a dot. It does make the clone bigger. Whether to separate them is not yet decided by the maintainer.
 
-## การตัดสินใจที่ตัดสินแล้ว
+## Decisions already made
 
-ห้ามรื้อข้อไหนโดยไม่ถามผู้ดูแลก่อน
+Do not overturn any of these without asking the maintainer first.
 
-1. **ชื่อ skill คือ `readable`** ผู้ดูแลเลือกเอง และรู้แล้วว่าเป็นคำทั่วไป ห้ามเสนอเปลี่ยนชื่อ
-2. **skill คือกระบวนการที่มีด่านตรวจ ไม่ใช่รายการกฎ** ต้องมีคนเรียกใช้เองเท่านั้น (`disable-model-invocation: true`) มี 3 mode คือ `new`, `refactor`, `migrate` และค่าเริ่มต้นของ `apply` คือ `v2` (เขียนของใหม่แยกจากของเดิม)
-3. **ลำดับความสำคัญ** ถูกต้อง > ไล่จากบนลงล่าง > ไม่ซ้ำ > สั้น > เร็ว ยอมช้าได้เฉพาะงานในหน่วยความจำ ห้ามเพิ่ม query หรือ API call
-4. **layout A เป็นค่าเริ่มต้น**
-   - 1 ไฟล์ต่อ 1 งาน
-   - **งาน** คือขั้นหนึ่งของ flow รวมทุก entry point ที่แค่สั่งเริ่มหรือส่งงานนั้นเข้าคิว
-   - การซ่อม เช่น retry กับ unlock รวมเป็นงานเดียว
-   - leaf ที่ถูกเรียกจาก 2 ไฟล์ขึ้นไปอยู่ใน `shared.py` และไม่เรียกกันเอง
-   - leaf ที่มีผู้เรียกหลายตัวแต่ทุกตัวอยู่ไฟล์เดียวกัน อยู่ท้ายไฟล์นั้น ใต้ผู้เรียกทุกตัว (ผู้ดูแลยืนยัน 2026-11-08 เดิมโค้ดส่งไป `shared.py`)
-   - helper ที่มีผู้เรียกคนเดียววางใต้ผู้เรียกทันที กระโดด 1 ครั้งรับได้
-   - **ไม่มี facade** คนเรียก import จากไฟล์จริง การแก้ import ถือเป็น `PIN(integrate)`
-   - สั้นไม่ได้แปลว่าควรอยู่ใน `shared.py` ฟังก์ชันที่ตัดสินใจคือเรื่องเล่า
-   - ทดสอบ layout AB แล้ว ผ่านครบเหมือนกันแต่อ่านไม่ได้ง่ายกว่าชัดเจน จึงให้ A เป็นค่าเริ่มต้น ส่วน layout B ยังไม่ได้ทดสอบ
-5. **ห้ามลบโค้ด** แม้จะไม่มีใครเรียก flag ที่ไม่มีใครส่งค่ามา ให้กลายเป็นตัวแปร local ที่ตั้งค่าเริ่มต้นไว้ แล้วคง branch ของมันไว้ `PIN` ใช้แทนโค้ดไม่ได้
-6. **การรวมก้อนที่ซ้ำกันทั้งก้อนใน flow เดียว เป็นไปตามกฎข้อ 6** ไม่นับเป็นการลบ แต่ต้องระบุในรายงาน
-7. **กฎข้อ 6 (โค้ดซ้ำ)**
-   - leaf ที่รวมแล้วห้าม raise ให้คืนผลแล้วให้เรื่องเล่าเป็นคน raise
-   - นับว่าซ้ำเมื่อซ้ำทั้งก้อน
-   - ส่วนที่ต่างกันอย่างน่าสงสัย ให้ปัก `PIN(behavior)`
-   - ก้อนที่รวมแล้วมีการเรียกออกไปข้างนอกได้ (เช่นเรียกบริการแล้วแปลง error) ชื่อต้องบอกว่าส่งอะไร คืนผล และเรื่องเล่าเป็นคนตัดสิน กฎ 6 ชนะกฎ 3 ในกรณีนี้ (ผู้ดูแลตัดสิน 2026-11-08)
-8. **parity** เทียบ payload ขาออกตามลำดับ และการจัดการ response (สำเร็จ / error ทางธุรกิจ / timeout) โดย stub ทุกอย่างนอก unit และไม่เทียบ DB
-9. **public surface นับจากโค้ด production เท่านั้น** test ที่ import ของภายในจะพังตอน migrate ข้อนี้ตั้งใจไว้ ชื่อระดับบนสุดที่ไม่ขึ้นต้นด้วย `_` แต่ไม่มีใครใน repo import ให้ถามที่ด่าน Map ถ้าผู้ใช้ไม่รู้ให้นับเป็น public (ผู้ดูแลตัดสิน 2026-11-08) ถ้า class ที่อาจเป็น public ส่ง state ระหว่าง method ผ่าน `self` ให้บอกที่ด่าน Map ว่าข้อตรวจนั้นจะไม่ผ่าน แล้วให้ผู้ใช้เลือก (ผู้ดูแลตัดสิน 2026-11-08 หลังรอบที่ 4)
-10. **linter** เพดานที่โปรเจกต์บังคับใช้จริง (config หรือ CI) ห้ามละเมิดเงียบๆ ถ้าจำเป็นต้องเกิน ให้ถามที่ด่านตรวจ
-11. **ตัวอย่างใน `style.md` แต่งขึ้นเอง** ไม่ตัดมาจากโค้ดจริง
-12. **ขอบเขตของ 1.x คือ Python 3.10 ขึ้นไปเท่านั้น** ถ้าเป็นภาษาอื่นหรือโค้ด async ให้หยุดที่ขั้น Map
-13. **2.0 (หลายภาษา)** ใช้สคริปต์ Python เป็นต้นแบบ คู่กับชุดข้อสอบตายตัว (ไม่ใช่ pseudo code) adapter ของแต่ละภาษาต้องสอบผ่านชุดนั้นก่อนใช้
-14. **การวัด 3 ชั้น**
-    - ตัวเลขจาก `jump_depth.py`
-    - AI คนอ่านที่จำกัดงบ (Haiku effort low และ Sonnet ต้องให้ลำดับตรงกัน)
-    - คนจริง
-    - ชุดคำถามมีไว้ทดสอบ skill เท่านั้น ตัว skill ไม่ได้ใช้
-15. **โมเดลที่ใช้รัน refactor ตอนทดสอบคือ Sonnet** รอบที่ 1 ได้ผลใกล้เคียง Opus
-16. **กฎของ `style.md` เป็นตัวเลือกที่ด่านได้ แต่ต้องติดป้าย** ตัวเลือกแรกต้องตรงกฎ ตัวที่ขัดกฎเขียนกำกับ `breaks rule N` พร้อมเหตุผล ถ้าผู้ใช้เลือก รายงานต้องระบุคู่กับ PIN(behavior) (ผู้ดูแลตัดสิน 2026-11-08)
-17. **แต่ละ entry point เป็นเรื่องเล่าของตัวเอง** แม้ entry point 2 ตัวจะทำขั้นเดียวกันต่างกันแค่ค่า ห้ามย้ายทั้งเรื่องไปไว้ในฟังก์ชันกลางที่รับค่าหรือ flag เฉพาะก้อนที่ซ้ำทั้งก้อนเป็น leaf ตามกฎ 6 (ผู้ดูแลตัดสิน 2026-11-08)
-18. **ใน class ที่เป็น public ห้าม inline method public** การที่ method public เรียกกันเองคือพฤติกรรม เพราะ subclass อาจ override ตัวที่ถูกเรียก parity มองไม่เห็นเพราะใน repo ไม่มี subclass แบบนั้น inline ได้เฉพาะ method private (ผู้ดูแลตัดสิน 2026-11-08 หลังรอบที่ 5)
+1. **The skill is named `readable`.** The maintainer chose it and knows it is a common word. Do not suggest renaming.
+2. **The skill is a process with gates, not a list of rules.** Only a person may invoke it (`disable-model-invocation: true`). It has 3 modes, `new`, `refactor`, `migrate`, and the default of `apply` is `v2` (write the new code apart from the old).
+3. **Priority order:** correct > reads top to bottom > no duplication > short > fast. It may be slower only for work in memory. Never add a query or an API call.
+4. **Layout A is the default.**
+   - One file per task.
+   - A **task** is one step of the flow, including every entry point that only starts that task or queues it.
+   - Repair actions such as retry and unlock are one task.
+   - A leaf called from two or more files lives in `shared.py`, and its functions do not call each other.
+   - A leaf with several callers that are all in one file sits at the end of that file, below all its callers (maintainer confirmed 2026-11-08; the code used to send it to `shared.py`).
+   - A helper with a single caller sits directly below that caller. One jump is acceptable.
+   - **No facade.** Callers import from the real file. Fixing those imports is a `PIN(integrate)`.
+   - Short does not mean it belongs in `shared.py`. A function that decides is a story.
+   - Layout AB was tested: it passed every check the same way but was not clearly easier to read, so A stays the default. Layout B has not been tested.
+5. **Never delete code,** even if nobody calls it. A flag nobody passes becomes a local variable set to its default, and its branch stays. A `PIN` cannot replace code.
+6. **Merging a chunk that repeats whole within one flow follows rule 6.** It does not count as a deletion, but it must be listed in the report.
+7. **Rule 6 (duplicated code)**
+   - A merged leaf must not raise. It returns a result and the story raises.
+   - A chunk counts as a duplicate only when it repeats whole.
+   - A suspicious difference gets a `PIN(behavior)`.
+   - A merged chunk may make outbound calls (for example calling a service and mapping its errors). Its name must say what it sends, it returns a result, and the story decides. Rule 6 beats rule 3 in this case (maintainer decision 2026-11-08).
+8. **Parity** compares outbound payloads in order, and the handling of responses (success / business error / timeout), with everything outside the unit stubbed. It does not compare the DB.
+9. **The public surface is counted from production code only.** Tests that import internals will break on migrate; this is intended. A top-level name without a leading underscore that nothing in the repo imports is asked about at the Map gate; if the user does not know, it counts as public (maintainer decision 2026-11-08). If a class that may be public passes state between its methods through `self`, the Map gate says that check will not pass, and the user chooses (maintainer decision 2026-11-08, after round 4).
+10. **Linter:** a limit that the project really enforces (config or CI) must not be broken silently. If it has to be exceeded, ask at the gate.
+11. **The examples in `style.md` are made up.** They are not cut from real code.
+12. **The scope of 1.x is Python 3.10 or newer only.** For another language, or for async code, stop at the Map step.
+13. **2.0 (many languages)** uses the Python scripts as the prototype, together with a fixed exam set (not pseudo code). Each language's adapter must pass that set before it is used.
+14. **Three layers of measurement**
+    - the numbers from `jump_depth.py`
+    - the budget-limited AI reader (Haiku with low effort and Sonnet must give the same ranking)
+    - a real person
+    - A question set exists only to test the skill. The skill itself does not use it.
+15. **The model used to run the refactor in tests is Sonnet.** Round 1 gave results close to Opus.
+16. **A rule of `style.md` can be a gate option, but it must be labeled.** The first option must follow the rule. An option that breaks a rule is marked `breaks rule N` with the reason. If the user picks it, the report lists it together with the PIN(behavior) items (maintainer decision 2026-11-08).
+17. **Each entry point is its own story,** even when two entry points do the same steps and differ only in values. Never move the whole story into a central function that takes a value or a flag. Only a chunk that repeats whole becomes a leaf, by rule 6 (maintainer decision 2026-11-08).
+18. **In a public class, never inline a public method.** A call from one public method to another is behavior, because a subclass may override the method that is called. Parity cannot see it, because no such subclass exists in the repo. Only private methods may be inlined (maintainer decision 2026-11-08, after round 5).
+19. **Everything written in the repo is in English** (maintainer decision 2026-11-08): the skill, the scripts, the tests, the examples and every document. The Thai translations (`th/`) were removed. Presenter notes in `doc/` are not part of the repo (`doc/` is in `.gitignore`). A string literal that is sample data, such as the Thai text in `examples/clean`, may stay.
 
-## สถานะ (1.1, 2026-11-07)
+## Status (1.1 released; 1.2 in progress, 2026-11-08)
 
-- ผลการทดสอบรอบที่ 1-4 สรุปไว้ใน `README.md` ข้อมูลดิบกับโค้ดที่ใช้ทดสอบเป็นของบริษัท จึงไม่อยู่ใน repo นี้และจะไม่มี
-- เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 ตอนนี้มี 61 ข้อ ผ่านทั้งหมด ในนั้น 1 ข้อเป็น expected failure ที่ตั้งใจไว้
-- `parity.py` ปฏิเสธโค้ด async แล้ว (ส่วน 1.2 ใน `CHANGELOG.md`)
-### agent กับ `examples/` รอบที่ 1 (2026-11-08, Sonnet, มี skill, แบบละ 1 run)
+- The results of test rounds 1-4 are summarized in `README.md`. The raw data and the code used for the tests belong to a company, so they are not in this repo and never will be.
+- A test set that depends on nobody (`tests/`, `examples/`, `eval/grade.py`) was added on 2026-11-07. It now has 61 tests. All pass, and 1 of them is an expected failure that is intentional.
+- `parity.py` refuses async code now (the 1.2 section of `CHANGELOG.md`).
+- Until 2026-11-08 `references/python.md` was in Thai, so the agent rounds below read the Thai version of it. It is now in English with the same content, but no agent run has used the English version yet.
 
-ผ่านตาม `shape` ครบ 5 ตัว ผลดิบไม่ได้เก็บไว้ (อยู่ใน scratchpad ของ session) ไฟล์เดิมไม่ถูกแตะทุกตัว (ตรวจด้วย hash)
+### Agents on `examples/`, round 1 (2026-11-08, Sonnet, with the skill, one run each)
 
-| ตัวอย่าง | ผล | context ตอนจบ / เวลาทำงาน |
+All 5 passed according to their `shape`. The raw results were not kept (they were in the session's scratchpad). No original file was touched in any run (checked by hash).
+
+| Example | Result | Context at the end / working time |
 |---|---|---|
-| `async_jobs` | หยุดที่ Map ก่อนเรียก `parity.py` (รันแค่ `jump_depth.py`) | 52k / 34 วิ |
-| `clean` | `--check` OK ไม่เสนอการย้าย แนะนำให้หยุด | 53k / 45 วิ |
-| `plugins` | ไล่ `on_created`/`on_deleted` ที่เรียกผ่าน `getattr` เองใน `map.md` และบอกที่ด่าน | 56k / 52 วิ |
-| `statements` | `grade.py` 7/7, 14 scenario, ทิ้ง class เป็น 2 ฟังก์ชัน, state ผ่าน `self` 1 → 0 | 76k / ~2.7 นาที |
-| `orders` | `grade.py` 9/9, 25 scenario, 4 งานตรงเฉลย, คงกิ่ง `notify`/`capture`/`cc` พร้อม PIN | 95k / ~4.8 นาที |
+| `async_jobs` | stopped at Map before calling `parity.py` (it ran only `jump_depth.py`) | 52k / 34 s |
+| `clean` | `--check` OK, proposed no moves, recommended stopping | 53k / 45 s |
+| `plugins` | traced `on_created`/`on_deleted`, called through `getattr`, by hand in `map.md` and said so at the gate | 56k / 52 s |
+| `statements` | `grade.py` 7/7, 14 scenarios, turned the classes into 2 functions, state through `self` 1 → 0 | 76k / ~2.7 min |
+| `orders` | `grade.py` 9/9, 25 scenarios, 4 tasks matching the golden answer, kept the `notify`/`capture`/`cc` branches with PINs | 95k / ~4.8 min |
 
-- ผู้ดูแลรีวิวโค้ดของ `orders` และ `statements` แล้วอ่านออก (ชั้น "คนจริง" ของการวัด)
-- ที่ด่าน Map ผู้ทดสอบอนุมัติตามที่ agent เสนอโดยไม่แก้ให้ ตอบเฉพาะสิ่งที่ผู้ใช้จริงรู้ (worker ของคิวใน `orders` ตอบตาม `shop/api.py`)
-- **ข้อบกพร่องของวิธีวัด:** workdir ของทุก run อยู่ในโฟลเดอร์แม่เดียวกัน agent ของ `orders` จึง `ls` เห็นชื่อไฟล์ของ run อื่น (ไม่ได้อ่านเนื้อหา) รอบหน้าให้แยกโฟลเดอร์แม่ต่อ run
-- **กฎที่ต้องตัดสิน:** `statements` มีงานเดียว แต่ก้อนที่ซ้ำใน 2 ฟังก์ชันของไฟล์เดียวต้องไป `shared.py` ตามตาราง keep/inline/merge ของ `style.md` V2 จึงต้องเป็น package (`ledger_app.importer_v2.importer`) และคนอ่านกระโดดข้ามไฟล์เพิ่ม
-- `clean` ชี้ว่า docstring ไม่มี header map (กฎ 9) แต่ไม่เสนอแก้ ถูกต้องตาม SKILL.md (เสนอได้แค่สิ่งที่ `--check` บอก และกฎ 5-7)
-- ตัวเลข token ที่ harness ให้คือขนาด context ตอนจบ ไม่ใช่ token รวม และเวลานับรวมช่วงรอที่ด่าน (ตารางหักออกแล้ว) ยังไม่รู้ว่าตัวเลขรอบที่ 1-4 ใน `README.md` วัดแบบเดียวกันหรือไม่
+- The maintainer reviewed the code of `orders` and `statements` and could read it (the "real person" layer of measurement).
+- At the Map gate the tester approved what the agent proposed without changing it, and answered only what a real user would know (the queue worker in `orders` was answered from `shop/api.py`).
+- **A flaw in the method:** every run's workdir was in the same parent folder, so the `orders` agent could `ls` the file names of other runs (it did not read their content). Next time give each run its own parent folder.
+- **A rule to decide:** `statements` has one task, but a chunk repeated in 2 functions of one file had to go to `shared.py` by the keep/inline/merge table of `style.md`. So the V2 had to be a package (`ledger_app.importer_v2.importer`), and readers jump across one more file.
+- `clean` pointed out that the docstring has no header map (rule 9) but did not propose a fix. That is correct under SKILL.md (it may propose only what `--check` says, plus rules 5-7).
+- The token number the harness gives is the context size at the end, not the total, and the time includes the wait at the gates (the table has it removed). It is not known whether the numbers of rounds 1-4 in `README.md` were measured the same way.
 
-### agent กับ `examples/` รอบที่ 2 (2026-11-08, Sonnet, มี skill 5 run + baseline 5 run)
+### Agents on `examples/`, round 2 (2026-11-08, Sonnet, 5 runs with the skill + 5 baseline runs)
 
-แต่ละ run อยู่ในโฟลเดอร์ชื่อสุ่มของตัวเอง ผลรอบที่ 1 ถูกบีบอัดไว้ก่อนเริ่ม ตรวจ transcript แล้ว ไม่มี run ไหนอ่านนอกโฟลเดอร์ของตัวเอง ไฟล์เดิมไม่ถูกแตะทุกตัว
-baseline ได้คำสั่งแบบผู้ใช้ทั่วไป: "refactor X ให้อ่านง่ายขึ้น พฤติกรรมต้องเหมือนเดิม เขียน V2 ไว้ข้างๆ ห้ามแก้ไฟล์เดิม" ตัวเลข `grade.py` ด้านล่างคือเกณฑ์ 11 ข้อ (ตรวจรอบที่ 1 ซ้ำด้วย)
+Each run was in its own randomly named folder, and the round-1 results were compressed away before the start. The transcripts were checked: no run read outside its own folder, and no original file was touched in any run.
+The baseline got the instruction of an ordinary user: "refactor X to make it easier to read, behavior must stay the same, write a V2 beside it, do not edit existing files". The `grade.py` numbers below use the 11 checks (round 1 was graded again with them).
 
-| ตัวอย่าง | มี skill รอบ 1 | มี skill รอบ 2 | baseline |
+| Example | with skill, round 1 | with skill, round 2 | baseline |
 |---|---|---|---|
-| `async_jobs` | หยุดที่ Map | หยุดที่ Map | เขียน V2 แก้ชื่อตัวแปร/docstring และตรวจ async ด้วยสคริปต์ที่เขียนเอง |
-| `clean` | หยุด ไม่เสนออะไร | หยุด ไม่เสนออะไร | เขียน V2 ใหม่ (เทมเพลตใน dict) |
-| `plugins` | หยุด ไล่ handler เอง | หยุด ไล่ handler เอง | เขียน V2 เปลี่ยน `"on_"` เป็นค่าคงที่ ไม่บอกเรื่อง handler ที่แผนที่มองไม่เห็น |
-| `statements` | 7/7 | 7/7 | 5/7 (ตก 04 depth, 12 state ผ่าน `self`) |
-| `orders` | 11/11 | 9/11 (ตก 13 ก้อน refund ซ้ำใน 2 ไฟล์, 14 สถานะเป็น literal) | 7/11 (ตก 04, 07, 08, 14) |
+| `async_jobs` | stopped at Map | stopped at Map | wrote a V2 (variable name / docstring) and checked async with a script it wrote itself |
+| `clean` | stopped, proposed nothing | stopped, proposed nothing | wrote a new V2 (templates in a dict) |
+| `plugins` | stopped, traced the handlers by hand | stopped, traced the handlers by hand | wrote a V2 that turns `"on_"` into a constant, did not mention the handlers the map cannot see |
+| `statements` | 7/7 | 7/7 | 5/7 (failed 04 depth, 12 state through `self`) |
+| `orders` | 11/11 | 9/11 (failed 13: refund chunk repeated in 2 files, 14: statuses as literals) | 7/11 (failed 04, 07, 08, 14) |
 
-context ตอนจบ / เวลาทำงานรอบที่ 2: มี skill 51k-86k / 1-3.7 นาที, baseline 38k-47k / 0.8-1.4 นาที
+Context at the end / working time in round 2: with the skill 51k-86k / 1-3.7 min, baseline 38k-47k / 0.8-1.4 min.
 
-- skill หยุดหรือบอกตามที่ควรทั้ง 2 รอบใน 3 ตัวที่ไม่ใช่ refactor ส่วน baseline เขียน V2 ทั้ง 3 ตัว
-- baseline รักษาพฤติกรรมได้ (parity ว่างทั้งสองตัวที่ refactor) แต่ไม่จัดโครงตามกฎ
-- `orders` รอบที่ 2 เสนอที่ด่านให้ inline ก้อน refund ทั้งก้อนในทั้งสองเรื่องเล่าเป็นค่าเริ่มต้น ผู้ทดสอบอนุมัติตามที่เสนอ ทั้งที่ขัดกฎ 6 และไม่ตั้งค่าคงที่ของสถานะ (กฎ 7) ส่วนรอบที่ 1 ทำถูกทั้งสองเรื่อง ก่อนเพิ่มข้อ 13-14 `grade.py` ให้ทั้งสองรอบ 9/9
-- `statements` รอบที่ 2 เสนอ leaf ในไฟล์เดียวกัน `--check` ไม่ผ่าน agent จึงย้ายไป `shared.py` เอง ได้ package เหมือนรอบที่ 1
-- baseline ตรวจโค้ด async ได้ด้วยตัวทดสอบที่เขียนเอง ส่วน skill หยุดเพราะ `parity.py` ยังไม่รองรับ (ปัญหาข้อ 7)
-- ระหว่างรอบนี้พบและแก้: `grade.py` สแกนทั้งแพ็กเกจเดิมเมื่อ V2 เป็นไฟล์เดียวในแพ็กเกจเดิม, ไม่ตรวจกฎ 6-7 (เพิ่มข้อ 13-14) และเฉลยของ `orders` เองขัดกฎ 3, 6, 7 (คำนวณยอดซ้ำ 2 ไฟล์, `shared.refund` เขียนสถานะ, สถานะเป็น literal) แก้เฉลยแล้ว
+- With the skill, all runs stopped or said what they should in the 3 non-refactor examples, in both rounds. The baseline wrote a V2 for all 3.
+- The baseline kept behavior (empty parity on both refactor examples) but did not restructure by the rules.
+- In round 2, `orders` proposed at the gate, as its default, to inline the whole refund chunk into both stories. The tester approved what was proposed, although that breaks rule 6, and did not name constants for the statuses (rule 7). Round 1 did both correctly. Before checks 13-14 were added, `grade.py` gave both rounds 9/9.
+- In round 2, `statements` proposed a leaf in the same file, `--check` did not pass it, and the agent moved it to `shared.py` itself, giving a package like round 1.
+- The baseline could check async code with a test it wrote itself, while the skill stopped because `parity.py` does not support it yet (known problem 7).
+- Found and fixed during this round: `grade.py` scanned the whole old package when the V2 was a single file in the old package; it did not check rules 6-7 (checks 13-14 were added); and the `orders` golden answer itself broke rules 3, 6 and 7 (totals computed in 2 files, `shared.refund` set statuses, statuses as literals). The golden answer is fixed.
 
-### agent กับ `examples/` รอบที่ 3 (2026-11-08, Sonnet, มี skill, `statements` และ `orders` แบบละ 2 run)
+### Agents on `examples/`, round 3 (2026-11-08, Sonnet, with the skill, 2 runs each of `statements` and `orders`)
 
-ทดสอบกฎหลังรอบที่ 2: leaf ที่ผู้เรียกอยู่ไฟล์เดียวอยู่ท้ายไฟล์ และตัวเลือกที่ด่านต้องติดป้าย `breaks rule N`
+Tested the rules after round 2: a leaf whose callers are in one file sits at the end of the file, and gate options must be labeled `breaks rule N`.
 
-| run | ตัวเลือกแรกที่ด่าน | `grade.py` | context ตอนจบ / เวลาทำงาน |
+| Run | First option at the gate | `grade.py` | Context at the end / working time |
 |---|---|---|---|
-| `statements` A | ทิ้ง class เป็นฟังก์ชัน (ติดป้ายว่าคง class ขัดกฎ "Class or function" ข้อ 2) | 7/7 ไฟล์เดียว leaf 2 ตัวท้ายไฟล์ | 73k / 2.8 นาที |
-| `statements` B | คง class ให้ `run` เป็นเรื่องเล่า (ติดป้ายว่าทิ้ง class ขัด "ห้ามแปลง class ที่เป็น public") | 7/7 ไฟล์เดียว | 76k / 2.8 นาที |
-| `orders` A | leaf `_refund_payment` (ติดป้ายว่าเขียนซ้ำขัดกฎ 6) | 11/11 | 92k / 4.3 นาที |
-| `orders` B | เขียน refund ซ้ำทั้งสองเรื่องเล่า อ้างลำดับกฎ (ติดป้ายว่า leaf ขัดกฎ 3, 4) | 10/11 (ตก 13) | 101k / 5.3 นาที |
+| `statements` A | drop the classes into functions (labeled keeping the classes as breaking rule 2 of "Class or function") | 7/7, one file, 2 leaves at the end | 73k / 2.8 min |
+| `statements` B | keep the classes with `run` as the story (labeled dropping the classes as breaking "never convert a public class") | 7/7, one file | 76k / 2.8 min |
+| `orders` A | leaf `_refund_payment` (labeled writing it twice as breaking rule 6) | 11/11 | 92k / 4.3 min |
+| `orders` B | write the refund twice, one in each story, citing the rule order (labeled the leaf as breaking rules 3, 4) | 10/11 (failed 13) | 101k / 5.3 min |
 
-- กฎ `shared.py` ใหม่ได้ผล: `statements` ทั้ง 2 run เป็นไฟล์เดียว (รอบที่ 1-2 เป็น package)
-- ทุก run ติดป้ายตัวเลือก แต่ป้ายของแต่ละคู่ตรงข้ามกัน เพราะกฎกำกวม 2 จุด ผู้ดูแลตัดสินแล้ว (การตัดสินใจข้อ 7 และ 9): กฎ 6 ชนะกฎ 3 สำหรับก้อนที่รวม และชื่อที่ไม่มีใคร import ให้ถามที่ด่าน Map
-- ต้นเหตุของปัญหาข้อ 4: Claude Code ไม่ให้ subagent เขียนไฟล์ report ด้วย Write tool (`Subagents should return findings as text, not write report files`) 2 จาก 4 run เขียนด้วย Bash แทน อีก 2 run ใส่รายงานในข้อความสุดท้ายตามทางสำรองของ skill เกิดเฉพาะตอนรันเป็น subagent
-- ไม่ได้รันซ้ำ `async_jobs`, `clean`, `plugins` กับกฎใหม่
+- The new `shared.py` rule worked: both `statements` runs are one file (rounds 1-2 were packages).
+- Every run labeled its options, but the labels of each pair were opposite, because the rules were ambiguous in 2 places. The maintainer has decided (decisions 7 and 9): rule 6 beats rule 3 for a merged chunk, and a name that nothing imports is asked about at the Map gate.
+- Cause of known problem 4: Claude Code does not let a subagent write a report file with the Write tool (`Subagents should return findings as text, not write report files`). 2 of the 4 runs wrote it with Bash instead, and the other 2 put the report in the final message, which is the skill's fallback. It happens only when the skill runs as a subagent.
+- `async_jobs`, `clean` and `plugins` were not rerun with the new rules.
 
-### agent กับ `examples/` รอบที่ 4 (2026-11-08, Sonnet, มี skill, `statements` และ `orders` แบบละ 2 run, ตัวอื่นแบบละ 1 run)
+### Agents on `examples/`, round 4 (2026-11-08, Sonnet, with the skill, 2 runs each of `statements` and `orders`, 1 run each of the others)
 
-ทดสอบกฎหลังรอบที่ 3: ข้อยกเว้นของกฎ 3 สำหรับก้อนที่รวม และการถามเรื่องชื่อที่ไม่มีใคร import ที่ `statements` ผู้ทดสอบตอบต่างกันโดยตั้งใจ: A "ไม่รู้" (ต้องนับเป็น public) และ B "ไม่มีคนนอกใช้"
+Tested the rules after round 3: the exception to rule 3 for a merged chunk, and asking about names that nothing imports. On `statements` the tester answered differently on purpose: A "I don't know" (must count as public) and B "nobody outside uses them".
 
-| run | ผล | context ตอนจบ / เวลาทำงาน |
+| Run | Result | Context at the end / working time |
 |---|---|---|
-| `async_jobs` | หยุดที่ Map ถามเรื่องชื่อ | 53k / 0.7 นาที |
-| `clean` | หยุด ไม่เสนออะไร ถามเรื่องชื่อ | 55k / 3.3 นาที |
-| `plugins` | หยุด ไล่ handler เอง ถามเรื่องชื่อ ติดป้ายตัวเลือกที่เปลี่ยนพฤติกรรม | 55k / 0.9 นาที |
-| `orders` A | 11/11 leaf `refund_payment` | 94k / 4.7 นาที |
-| `orders` B | 11/11 leaf `_refund_payment` | 103k / 5.0 นาที |
-| `statements` A ("ไม่รู้") | 6/7 คง class และ method เดิมเป็น public ข้อ 12 ตกเพราะ `load`/`validate`/`post` ส่ง `rows` ผ่าน `self` หยุดถามที่ด่าน Verify | 85k / 4.9 นาที |
-| `statements` B ("ไม่มีคนนอกใช้") | 7/7 แต่ย้ายทั้งเรื่องไปไว้ใน `_import_statement(path, account, negate_amounts)` entry point เหลือแค่ตัวส่งต่อ ตัดสินใจเองตอน rewrite | 76k / 3.5 นาที |
+| `async_jobs` | stopped at Map, asked about names | 53k / 0.7 min |
+| `clean` | stopped, proposed nothing, asked about names | 55k / 3.3 min |
+| `plugins` | stopped, traced the handlers by hand, asked about names, labeled the option that changes behavior | 55k / 0.9 min |
+| `orders` A | 11/11, leaf `refund_payment` | 94k / 4.7 min |
+| `orders` B | 11/11, leaf `_refund_payment` | 103k / 5.0 min |
+| `statements` A ("I don't know") | 6/7, kept the class and its methods as public; check 12 failed because `load`/`validate`/`post` pass `rows` through `self`; stopped and asked at the Verify gate | 85k / 4.9 min |
+| `statements` B ("nobody outside uses them") | 7/7, but moved the whole story into `_import_statement(path, account, negate_amounts)`, leaving the entry points as pass-throughs; decided by itself during the rewrite | 76k / 3.5 min |
 
-- ข้อยกเว้นของกฎ 3 ได้ผล: `orders` ทั้ง 2 run เสนอ leaf เป็นตัวเลือกแรก (รอบที่ 3 ได้ 1 ใน 2)
-- ทุก run ถามเรื่องชื่อที่ไม่มีใคร import (`orders` บอกเองว่าทุกชื่อมีคน import)
-- `orders` ทั้ง 2 run ตั้งค่าคงที่ของสถานะเองตอน rewrite (กฎ 7) แม้ไม่ได้อยู่ในแผนที่อนุมัติ และบอกในรายงาน
-- ปัญหาใหม่ 3 ข้อ แก้กฎแล้ว (ผู้ดูแลตัดสิน): class ที่อาจเป็น public ซึ่งส่ง state ผ่าน `self` ต้องบอกตั้งแต่ด่าน Map (การตัดสินใจข้อ 9), แต่ละ entry point เป็นเรื่องเล่าของตัวเอง (ข้อ 17) และ `async_jobs` เสนอ "ทำ V2 ต่อแบบไม่มี parity" จึงเพิ่มแถว red flag ห้ามเสนอทางเลี่ยงด่าน
-- `grade.py` ไม่ตรวจกฎ 1 (entry point คือเรื่องเล่า) จึงให้ `statements` B ผ่าน 7/7
+- The exception to rule 3 worked: both `orders` runs offered the leaf as the first option (round 3 had 1 of 2).
+- Every run asked about names that nothing imports (`orders` said by itself that every name is imported).
+- Both `orders` runs named constants for the statuses by themselves during the rewrite (rule 7), although it was not in the approved plan, and said so in the report.
+- 3 new problems, rules fixed (maintainer decisions): a class that may be public and passes state through `self` must be called out at the Map gate (decision 9), each entry point is its own story (decision 17), and `async_jobs` offered "go on with a V2 without parity", so a red-flag row was added: never offer a way around a gate.
+- `grade.py` does not check rule 1 (the entry point is the story), so it gave `statements` B 7/7.
 
-### agent กับ `examples/` รอบที่ 5 (2026-11-08, Sonnet, มี skill, `statements` 2 run)
+### Agents on `examples/`, round 5 (2026-11-08, Sonnet, with the skill, 2 runs of `statements`)
 
-ทดสอบกฎหลังรอบที่ 4 ผู้ทดสอบตอบเรื่องชื่อ public เหมือนรอบที่ 4: A "ไม่รู้", B "ไม่มีคนนอกใช้"
+Tested the rules after round 4. The tester answered about public names as in round 4: A "I don't know", B "nobody outside uses them".
 
-| run | ผล | context ตอนจบ / เวลาทำงาน |
+| Run | Result | Context at the end / working time |
 |---|---|---|
-| `statements` A | บอกตั้งแต่ด่าน Map ว่าถ้าคง class เป็น public ข้อตรวจ state ผ่าน `self` จะไม่ผ่าน ผู้ทดสอบเลือกคง class ทำจนจบโดยไม่หยุดที่ Verify ได้ 6/7 (ข้อ 12 ตามที่เลือก) | 80k / 3.8 นาที |
-| `statements` B | 7/7 entry point ทั้งสองเป็นเรื่องเล่าของตัวเอง leaf `_drop_zero_rows` ท้ายไฟล์ ค่าคงที่ของบัญชี | 73k / 2.3 นาที |
+| `statements` A | said at the Map gate that keeping the class public means the state-through-`self` check will not pass; the tester chose to keep the class; it finished without stopping at Verify; 6/7 (check 12, as chosen) | 80k / 3.8 min |
+| `statements` B | 7/7, each of the two entry points is its own story, leaf `_drop_zero_rows` at the end of the file, constants for the accounts | 73k / 2.3 min |
 
-- กฎหลังรอบที่ 4 ได้ผลครบ: ไม่มีเรื่องเล่ากลางที่รับ flag และเรื่อง state ใน class ที่อาจเป็น public ถูกบอกตั้งแต่ด่าน Map
-- พบเรื่องใหม่: A คง class แต่ inline `load`/`validate`/`post` เข้า `run` และคง method เดิมไว้โดยไม่มีใครเรียก subclass นอก repo ที่ override จะไม่ถูกเรียกอีก (parity มองไม่เห็น) และก้อนเดิมซ้ำ 2 ที่ agent ปัก PIN และถามเอง ผู้ดูแลตัดสินเป็นการตัดสินใจข้อ 18
+- The rules after round 4 worked: no central story that takes a flag, and the state-through-`self` problem of a class that may be public was called out at the Map gate.
+- A new finding: A kept the class but inlined `load`/`validate`/`post` into `run` and left the old methods in place with no caller. A subclass outside the repo that overrides one of them would no longer be called (parity cannot see it), and the old chunk now exists twice. The agent pinned it and asked about it itself. The maintainer decided it as decision 18.
 
-## งานถัดไป (ตามลำดับที่ตกลงกัน)
+## Next tasks (in the agreed order)
 
-1. งานที่เหลือของ 1.2: ปัญหาข้อ 1-9 และ 11-12, เฉลย (`golden/`) ของ `statements` (ผลรอบที่ 3 เป็นไฟล์เดียวแล้ว แบบที่ใช้ขึ้นกับคำตอบเรื่องชื่อ public ที่ด่าน Map), ชุดคำถามของ `orders`, อัปเดตส่วน "โครงสร้าง" ใน `README.md` ให้มี `tests/`, `examples/`, `eval/grade.py`
-2. เข้า `main` และติด tag `v1.1` เมื่อผู้ดูแลพอใจ
+1. What is left of 1.2: known problems 1-9 and 11-12; the golden answer (`golden/`) of `statements` (the round-3 result is one file now, and which version to use depends on the answer about public names at the Map gate); a question set for `orders`; update the "Structure" section of `README.md` to include `tests/`, `examples/`, `eval/grade.py`; run one agent on `statements` to test decision 18 and one with the English `references/python.md`.
+2. Merge into `main` and tag `v1.1` when the maintainer is satisfied.
 
-## รันทดสอบ
+## Running the tests
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-ต้องใช้ Python 3.10 ขึ้นไป ไม่ต้องติดตั้งอะไรเพิ่ม ถ้าสคริปต์ไม่ได้อยู่ที่ `scripts/` ให้ตั้ง `READABLE_SCRIPTS=<โฟลเดอร์>`
+Python 3.10 or newer is needed, and nothing else has to be installed. If the scripts are not at `scripts/`, set `READABLE_SCRIPTS=<folder>`.
 
-ถ้าแก้สคริปต์ ต้องรันชุดนี้ก่อนบอกว่าเสร็จ ถ้ามีข้อ expected failure กลายเป็น "unexpected success" แปลว่าข้อจำกัดนั้นถูกแก้แล้ว ให้สลับคู่ทดสอบนั้น
+If you change a script, run this suite before saying you are done. If an expected-failure test turns into an "unexpected success", that limit has been fixed, so swap that test pair.
 
-## ทดสอบ skill กับ agent
+## Testing the skill with an agent
 
-1. `python3 eval/prepare.py <example> <workdir>` ให้ workdir อยู่นอก repo หรือในโฟลเดอร์ที่ ignore ไว้ และให้แต่ละ run มีโฟลเดอร์แม่ของตัวเอง
-2. เปิด subagent ใหม่ที่เริ่มจากศูนย์ (general-purpose ไม่ใช่ fork เพราะ fork จะได้บทสนทนาไปด้วย) สั่งให้อ่าน `SKILL.md` เองเพราะ skill ไม่ทำงานอัตโนมัติ แล้วให้ทำงานใน workdir โดยเพิ่มไฟล์ใหม่ และห้ามแก้ไฟล์ที่มีอยู่
-   - คัดลอกแค่ `SKILL.md`, `references/`, `scripts/` ไปไว้ที่อื่น agent จะได้ไม่เห็น `case.json`, `golden/` และไฟล์นี้
-   - ส่ง `work=` ที่อยู่นอก workdir เพราะ `grade.py` นับไฟล์ `.py` ใหม่ทุกไฟล์ใน workdir เป็นผลงาน รวมถึง `scenarios.py`
-   - prompt เดียวกันทุกตัวอย่าง ต่างกันแค่ target และสั่งให้จบ turn ที่ทุกด่าน แล้วตอบด่านด้วย SendMessage
+1. `python3 eval/prepare.py <example> <workdir>`. Keep the workdir outside the repo or in an ignored folder, and give each run its own parent folder.
+2. Open a new subagent that starts from zero (general-purpose, not a fork, because a fork would inherit the conversation). Tell it to read `SKILL.md` itself, because the skill does not run automatically, then to work in the workdir, adding new files and never editing an existing one.
+   - Copy only `SKILL.md`, `references/` and `scripts/` somewhere else, so the agent cannot see `case.json`, `golden/` or this file.
+   - Pass a `work=` that is outside the workdir, because `grade.py` counts every new `.py` file in the workdir as part of the work, including `scenarios.py`.
+   - Use the same prompt for every example, differing only in the target, tell it to end its turn at every gate, and answer the gate with SendMessage.
 3. `python3 eval/grade.py <example> <workdir> --json <workdir>/grading.json`
-4. รัน baseline (สั่งงานเดียวกันแต่ไม่มี skill) เพื่อเทียบ แล้วเก็บ token กับเวลาของทุก run
-5. ทุกแบบควรรันมากกว่า 1 ครั้งก่อนสรุป (ปัญหาข้อ 6 ใน CHANGELOG)
+4. Run a baseline (the same task without the skill) to compare, and keep the tokens and time of every run.
+5. Run each variant more than once before concluding (known problem 6 in the CHANGELOG).

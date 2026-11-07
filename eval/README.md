@@ -1,42 +1,40 @@
-# eval: วัดว่า skill ทำงานได้จริงกับตัวอย่าง
+# eval: measure whether the skill works on the examples
 
-ไม่ต้องใช้ git ไม่ต้องมี Django ไม่มีโค้ดบริษัท ทุกอย่างรันจากโฟลเดอร์ของ repo นี้
+No git, no Django and no company code are needed. Everything runs from the folder of this repo.
 
-## ขั้นตอนต่อ 1 รอบ
+## One round
 
 ```bash
-# 1. ทำสำเนาให้ผู้รัน (agent) ทำงาน
+# 1. Make a copy for the runner (the agent) to work in
 python eval/prepare.py orders /tmp/run1
 
-# 2. ให้ agent ใช้ skill กับ /tmp/run1 (สั่งให้ refactor shop/checkout.py ตามกฎของ skill
-#    ห้ามแก้ไฟล์ที่มีอยู่เดิม ให้เพิ่มไฟล์ใหม่เป็นแพ็กเกจ เช่น shop/checkout_v2/)
+# 2. Let the agent use the skill on /tmp/run1 (tell it to refactor shop/checkout.py by the skill's rules,
+#    never to edit an existing file, and to add the new files as a package such as shop/checkout_v2/)
 
-# 3. ตรวจ
+# 3. Grade
 python eval/grade.py orders /tmp/run1 --json /tmp/run1/grading.json
 ```
 
-`prepare.py` บันทึก sha256 ของทุกไฟล์เริ่มต้น `grade.py` ใช้ตรวจว่าไฟล์เดิมไม่ถูกแตะ และใช้ไฟล์ใหม่เป็นผลงานของรอบนั้น
+`prepare.py` records the sha256 of every file the copy starts with. `grade.py` uses it to check that the original files were not touched, and it treats the new files as the work of that round.
 
-## ข้อที่ตรวจ
+## What is checked
 
-| ข้อ | ตรวจอะไร |
+| Check | What it verifies |
 |---|---|
-| 01 | parity: ทุกชุด scenarios บันทึกกับต้นฉบับและกับไฟล์ใหม่ แล้ว diff ว่าง |
-| 02 | ไฟล์เดิมทุกไฟล์ไม่ถูกแก้ |
-| 03 | ชื่อที่ production code import จากโมดูลเดิม มีนิยามอยู่ในไฟล์ใหม่ไฟล์ใดไฟล์หนึ่ง |
-| 04 | `jump_depth`: local_depth สูงสุด <= 1 |
-| 07 | `jump_depth`: การเรียงไฟล์ (helper ใต้ผู้เรียก, `shared.py` ไม่เรียกกันเอง, ไม่มี facade) |
-| 08 | แต่ละงานอยู่ไฟล์เดียว และคนละงานอยู่คนละไฟล์ |
-| 09 | ไม่มีไฟล์ใหม่ import โมดูลเดิม |
-| 11 | กิ่งของต้นฉบับที่ไม่มีใครเรียกยังอยู่ในโค้ดเป็นคำสั่ง `if` |
-| 12 | `jump_depth`: ไม่ส่ง state ระหว่าง method ผ่าน `self` และ inheritance ของโปรเจกต์ <= 1 |
-| 13 | ก้อนที่ซ้ำทั้งก้อนเขียนไว้ในฟังก์ชันเดียว (กฎ 6) ตรวจจากเครื่องหมายของแต่ละก้อนใน `written_once` ของ `case.json`: `.refund` คือ method, ชื่ออื่นคือชื่อตัวแปรหรือ attribute |
-| 14 | รหัสสถานะใน `codes` ของ `case.json` เป็นค่าคงที่ ALL_CAPS ที่นิยามที่เดียว และไม่เป็น literal ที่อื่น (กฎ 7) |
+| 01 | parity: every scenario set is recorded on the original and on the new files, and the diff is empty |
+| 02 | every original file is unchanged |
+| 03 | every name that production code imports from the old module is defined in one of the new files |
+| 04 | `jump_depth`: max local_depth <= 1 |
+| 07 | `jump_depth`: file layout (helper below its caller, `shared.py` functions never call each other, no facade) |
+| 08 | each task lives in one file, and different tasks live in different files |
+| 09 | no new file imports the old module |
+| 11 | branches of the original that no caller reaches are still in the code as `if` statements |
+| 12 | `jump_depth`: no state passed between methods through `self`, and project inheritance <= 1 |
+| 13 | each chunk that repeated whole is written in one function only (rule 6), checked by a marker per chunk in `written_once` of `case.json`: `.refund` is a method, any other name is a variable or attribute name |
+| 14 | the status codes in `codes` of `case.json` are ALL_CAPS constants defined once and never written as literals elsewhere (rule 7) |
 
-ข้อ 05 และ 06 (AI คนอ่านตอบคำถามจากโค้ดใหม่ ด้วย `eval/reader.py` และ `eval/reader_prompt.md`) ยังไม่มีในชุดนี้ เพราะตัวอย่างยังไม่มีชุดคำถาม (`questions.md` / `key.md`) ชุดคำถามมีไว้ทดสอบ skill เท่านั้น
+Checks 05 and 06 (an AI reader answering questions about the new code, with `eval/reader.py` and `eval/reader_prompt.md`) are not in this set, because the examples have no question sets yet (`questions.md` / `key.md`). A question set exists only to test the skill.
 
-## ตรวจตัวตรวจเอง
+## Checking the grader itself
 
-`tests/test_grade.py` ใช้เฉลยที่ถูกของ `orders` ต้องผ่านครบ 11 ข้อ และเฉลยที่ถูกทำให้ผิดทีละแบบ (เปลี่ยน payload, ทิ้งกิ่งที่ไม่มีใครเรียก,
-ต่อ helper ซ้อน, ใส่โค้ดใน `__init__.py`, แก้ไฟล์เดิม, import โมดูลเดิม, ส่ง state ผ่าน `self`, inheritance 2 ชั้น, ก๊อปการเรียก refund
-ไปอีกเรื่องเล่า, เขียนรหัสสถานะเป็น literal) ต้องล้มเฉพาะข้อที่ควรล้ม
+`tests/test_grade.py` takes the correct golden answer of `orders`, which must pass all 11 checks. Then it breaks the golden answer one way at a time (change a payload, drop a branch no caller reaches, chain helpers, put code in `__init__.py`, edit an original file, import the old module, pass state through `self`, two layers of inheritance, copy the refund call into another story, write a status code as a literal). Each break must fail only the check that is meant to catch it.
