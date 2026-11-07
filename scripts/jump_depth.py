@@ -18,8 +18,9 @@ Per entrypoint:  a function nothing in the unit calls, or a public function.
 Per class:       inheritance (project ancestor layers; framework bases do not count), state_across (`self.x` set in a
                  method other than __init__ and read in another), from_ancestors, defined_elsewhere.
 Layout:          jumps inside one file. A top-level function called from its own file must sit directly below its
-                 only caller there; functions in shared.py never call each other; an __init__.py of a target folder
-                 holds no code and re-exports nothing (no facade).
+                 only caller there, or, with several callers there, at the end of the file below all of them;
+                 functions in shared.py never call each other; an __init__.py of a target folder holds no code and
+                 re-exports nothing (no facade).
 
 Options:
     --check            exit 1 unless every local_depth <= 1, inheritance <= 1, no state_across, every hidden import
@@ -528,8 +529,9 @@ def similar(unit, folder, root, exclude=()):
 
 def same_file_jumps(unit):
     """A top-level function called from its own file sits directly below its only caller there (between them only
-    other helpers of that caller), so a reader jumps down a few lines and back. A helper with two callers in the
-    file goes into shared.py, whose functions never call each other. Calls from other files do not count here."""
+    other helpers of that caller), so a reader jumps down a few lines and back. A leaf with several callers there sits
+    at the end of the file, below all of them, where only other such leaves follow it. A leaf called from other files
+    goes into shared.py, whose functions never call each other. Calls from other files do not count here."""
     found = []
     for module, info in unit.modules.items():
         order = [key for _, key in sorted((data["line"], key) for key, data in unit.defs.items()
@@ -547,7 +549,11 @@ def same_file_jumps(unit):
             if Path(info["file"]).stem == "shared":
                 found.append(f"{where} {name} is called by {names} in shared.py: its functions never call each other")
             elif len(by) > 1:
-                found.append(f"{where} {name} is called by {names} in its own file: move it to shared.py")
+                after = order[order.index(target) + 1:]
+                if (any(order.index(key) > order.index(target) for key in by)
+                        or any(len(callers[key]) < 2 for key in after)):
+                    found.append(f"{where} {name} is called by {names} in its own file: "
+                                 f"place it at the end of the file, below all of them")
             else:
                 start, end = order.index(by[0]), order.index(target)
                 if end < start or any(callers[key] != by for key in order[start + 1:end]):

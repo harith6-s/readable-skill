@@ -13,7 +13,7 @@ metadata:
 
 One request or task must read **top to bottom, in one place**. Readability is measured in **jump levels**, not in lines: a file may grow and code may get slightly slower, but **behavior must not change**.
 
-This skill is a **process with gates**, not a list of tips. Every step ends with an artifact (a file or a command result). Do not start the next step until that artifact exists. If a gate cannot be met, stop and tell the user why. Do not work around it.
+This skill is a **process with gates**, not a list of tips. Every step ends with an artifact (a file or a command result). Do not start the next step until that artifact exists. If a gate cannot be met, stop and tell the user why. Do not work around it. When a gate offers the user choices, the first one follows `references/style.md`. An option that breaks one of its rules is marked `breaks rule N` with the reason. If the user picks it, the report lists it with the behavior pins.
 
 `references/style.md` defines what good code looks like. Read it before writing any code, in every mode.
 
@@ -83,7 +83,7 @@ Write pins in the language's comment syntax, spelled exactly like this so they c
 ### 5. Verify
 
 - Record the rewrite and diff it against `original.json`. Give each file of a rewrite split into task files as its own `--unit`, so the same scenarios find each entry point in its new file. **The diff must be empty.**
-- Run `python scripts/jump_depth.py <rewrite> --root <import root> --usage <repo dir> --check`. For a V2 add `--forbid <old module> --public-from <old module>`: nobody imports a V2 yet, so its public names come from the old module. It fails unless: unit-local depth ≤ 1, project inheritance ≤ 1, no state passed between methods through `self`, every import inside a function has a reason comment (only an import that breaks a circular import may stay there), a V2 imports nothing from the old code, and the layout holds: a function called from its own file sits directly below its only caller there, the functions of `shared.py` never call each other, and no `__init__.py` holds code or re-exports names (no facade).
+- Run `python scripts/jump_depth.py <rewrite> --root <import root> --usage <repo dir> --check`. For a V2 add `--forbid <old module> --public-from <old module>`: nobody imports a V2 yet, so its public names come from the old module. It fails unless: unit-local depth ≤ 1, project inheritance ≤ 1, no state passed between methods through `self`, every import inside a function has a reason comment (only an import that breaks a circular import may stay there), a V2 imports nothing from the old code, and the layout holds: a function called from its own file sits directly below its only caller there, or at the end of the file when it has several callers there, the functions of `shared.py` never call each other, and no `__init__.py` holds code or re-exports names (no facade).
 - The public surface keeps its names and signatures, except changes the user approved for a V2 (see Refactor rules).
 
 **Gate:** all checks pass. Reading the code is not verification. If a check cannot run, write that in the report and stop.
@@ -139,7 +139,7 @@ Write the rewrite over the original and resolve every `PIN(integrate)`. Then ver
 2. **Function map:** old name → new place (inlined into step N, merged with a duplicate, kept as a leaf, or made private).
 3. **Numbers before → after:** functions, max depth, functions a reader may need to open, hidden imports, project inheritance, state passed between methods.
 4. **Parity:** scenarios per entry point, the diff result, outbound calls never reached.
-5. **Behavior pins:** bugs, oddities and code with no caller, kept as they were.
+5. **Behavior pins:** bugs, oddities and code with no caller, kept as they were, and every rule the user chose to break at a gate (`breaks rule N`).
 6. **Not verified:** anything the checks could not cover.
 7. **Checklist.** Always last, in every mode, whoever does the migration. Generate it from a code scan. Never tick it by hand.
    - `v2`: callers still on the old code (`file:line`), open `PIN(integrate)` items, tests to delete with the old code, and the next command: `/readable mode=migrate <report>`.
@@ -159,3 +159,4 @@ Version 1.x supports **Python only**. The scripts need Python 3.10 or newer (sta
 | "A small fix on the way" | That is a behavior change. Pin it and report it. |
 | "Remove the unused import" | It may be public surface. Check its usage first. |
 | "Nobody passes this argument, so I can drop the branch and pin it" | Keep the branch, with the argument as a local variable set to its default. A pin marks code, it does not replace it. |
+| "Let the user pick: copy the chunk into both stories, or one leaf" | Offer the rule first. Mark an option that breaks a rule `breaks rule N`. |

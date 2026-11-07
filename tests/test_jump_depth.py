@@ -78,7 +78,7 @@ class Layout(ProjectTest):
         self.assertEqual(code, 1)
         self.assertIn("is not directly below its caller", text)
 
-    def test_helper_called_twice_in_one_file_belongs_in_shared(self):
+    def test_leaf_called_twice_in_one_file_sits_at_the_end_of_it(self):
         root = self.project({"pkg/__init__.py": "", "pkg/m.py": """
             def one():
                 return helper()
@@ -90,8 +90,40 @@ class Layout(ProjectTest):
                 return 1
             """})
         code, text = jump_depth("pkg/m.py", "--root", ".", "--check", cwd=root)
+        self.assertEqual(code, 0, text)
+
+    def test_leaf_with_several_callers_above_one_of_them_is_flagged(self):
+        root = self.project({"pkg/__init__.py": "", "pkg/m.py": """
+            def one():
+                return helper()
+
+            def helper():
+                return 1
+
+            def two():
+                return helper()
+            """})
+        code, text = jump_depth("pkg/m.py", "--root", ".", "--check", cwd=root)
         self.assertEqual(code, 1)
-        self.assertIn("move it to shared.py", text)
+        self.assertIn("place it at the end of the file", text)
+
+    def test_leaf_with_several_callers_followed_by_a_story_is_flagged(self):
+        root = self.project({"pkg/__init__.py": "", "pkg/m.py": """
+            def one():
+                return helper()
+
+            def two():
+                return helper()
+
+            def helper():
+                return 1
+
+            def three():
+                return 3
+            """})
+        code, text = jump_depth("pkg/m.py", "--root", ".", "--check", cwd=root)
+        self.assertEqual(code, 1)
+        self.assertIn("place it at the end of the file", text)
 
     def test_shared_leaves_must_not_call_each_other(self):
         root = self.project({"pkg/__init__.py": "", "pkg/shared.py": """
