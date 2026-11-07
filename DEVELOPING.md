@@ -34,7 +34,7 @@
 |---|---|---|
 | `SKILL.md`, `references/`, `scripts/`, `th/` | skill | ส่วนที่ผู้ใช้ skill ได้ไปใช้จริง |
 | `eval/reader.py`, `eval/reader_prompt.md` | เครื่องมือวัด | AI คนอ่านที่จำกัดงบ |
-| `eval/prepare.py`, `eval/grade.py` | เครื่องมือวัด | ทำสำเนาให้ agent และตรวจผล refactor 8 ข้อ (ดู `eval/README.md`) |
+| `eval/prepare.py`, `eval/grade.py` | เครื่องมือวัด | ทำสำเนาให้ agent และตรวจผล refactor 9 ข้อ (ดู `eval/README.md`) |
 | `examples/` | นักพัฒนา | โปรเจกต์สังเคราะห์ 5 รูปแบบ (ดู `examples/README.md`) |
 | `tests/` | นักพัฒนา | ทดสอบตัวสคริปต์และตัวตรวจ (ดู `tests/README.md`) |
 
@@ -78,7 +78,7 @@
 ## สถานะ (1.1, 2026-11-07)
 
 - ผลการทดสอบรอบที่ 1-4 สรุปไว้ใน `README.md` ข้อมูลดิบกับโค้ดที่ใช้ทดสอบเป็นของบริษัท จึงไม่อยู่ใน repo นี้และจะไม่มี
-- เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 ตอนนี้มี 54 ข้อ ผ่านทั้งหมด ในนั้น 1 ข้อเป็น expected failure ที่ตั้งใจไว้
+- เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 ตอนนี้มี 56 ข้อ ผ่านทั้งหมด ในนั้น 1 ข้อเป็น expected failure ที่ตั้งใจไว้
 - `parity.py` ปฏิเสธโค้ด async แล้ว (ส่วน 1.2 ใน `CHANGELOG.md`)
 - ยังไม่เคยให้ agent ใช้ skill กับ `examples/` เลย
 

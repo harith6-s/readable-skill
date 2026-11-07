@@ -44,7 +44,7 @@ class Golden(unittest.TestCase):
 
     def test_the_correct_refactor_passes_everything(self):
         results = self.graded()
-        self.assertEqual(sorted(results), ["01", "02", "03", "04", "07", "08", "09", "11"])
+        self.assertEqual(sorted(results), ["01", "02", "03", "04", "07", "08", "09", "11", "12"])
         self.assertEqual([key for key, item in results.items() if not item["passed"]], [])
 
     def test_a_changed_payload_fails_parity_only(self):
@@ -78,6 +78,20 @@ class Golden(unittest.TestCase):
         mutate = self.edit("repair_order.py", "from shop import audit, orders_store",
                            "from shop import audit, checkout, orders_store")
         self.assertEqual(self.failing(mutate), ["09"])
+
+    def test_state_passed_through_self_fails_the_class_check_only(self):
+        def mutate(work):
+            with open(work / PACKAGE / "preview_order.py", "a") as handle:
+                handle.write("\n\nclass _Basket:\n    def fill(self, items):\n        self.lines = list(items)\n\n"
+                             "    def count(self):\n        return len(self.lines)\n")
+        self.assertEqual(self.failing(mutate), ["12"])
+
+    def test_two_layers_of_project_inheritance_fail_the_class_check_only(self):
+        def mutate(work):
+            with open(work / PACKAGE / "preview_order.py", "a") as handle:
+                handle.write("\n\nclass _Base:\n    pass\n\n\nclass _Middle(_Base):\n    pass\n\n\n"
+                             "class _Leaf(_Middle):\n    pass\n")
+        self.assertEqual(self.failing(mutate), ["12"])
 
     def test_a_missing_public_name_fails_surface_check(self):
         mutate = self.edit("repair_order.py", "def unlock_order(order_id):", "def unlock_the_order(order_id):")

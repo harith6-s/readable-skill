@@ -14,6 +14,7 @@ READABLE_SCRIPTS environment variable, else ../scripts next to this folder). Exi
 08 each task lives in one file, and different tasks in different files (cases that list their tasks)
 09 no new file imports the original module
 11 branches of the original that no caller reaches are still in the code as `if` statements (cases that list them)
+12 jump_depth classes: no state passed between methods through self, project inheritance <= 1
 """
 
 import argparse
@@ -183,11 +184,15 @@ def grade(example, workdir, scripts):
     if report is None:
         results.append(expectation("04 max local_depth <= 1", False, f"jump_depth failed: {text[-400:]}"))
         results.append(expectation("07 layout check passes", False, "jump_depth failed"))
+        results.append(expectation("12 no state through self, inheritance <= 1", False, "jump_depth failed"))
     else:
         summary = report["summary"]
         results.append(expectation("04 max local_depth <= 1", summary["max_local_depth"] <= 1, f"summary {summary}"))
         results.append(expectation("07 layout check passes", not report["layout"],
                                    f"{len(report['layout'])} problem(s): {report['layout'][:4]}"))
+        classes = [f"{cls['class']} state_across={cls['state_across']} inheritance={cls['inheritance']}"
+                   for cls in report["classes"] if cls["state_across"] or cls["inheritance"] > 1]
+        results.append(expectation("12 no state through self, inheritance <= 1", not classes, f"classes: {classes}"))
 
     # 08 one task per file
     if case.get("tasks"):
