@@ -53,7 +53,7 @@ Read the project's lint and CI configuration (for example ruff, pylint, flake8, 
 - split the story into step functions that are leaves. Some decisions then move into the steps, and the report must say so,
 - leave the configuration to a human.
 
-If a class that may be public passes state between its methods through `self`, its public methods cannot change, so the check on state through `self` cannot pass while it stays public. Say so at the gate and let the user choose. If they keep it public, the report lists it as a rule they chose to break.
+If a class that may be public passes state between its methods through `self`, its public methods cannot change, so the check on state through `self` cannot pass while it stays public. Its public methods also keep calling each other (a subclass may override them), so its depth may stay above 1. Say so at the gate and let the user choose. If they keep it public, the report lists it as a rule they chose to break.
 
 **Gate:** `<work>/map.md` exists, and the user has approved the units, the file and the `apply` of each, which top-level names nothing imports are public, and how to meet any enforced lint limit.
 

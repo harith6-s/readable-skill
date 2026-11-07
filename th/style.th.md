@@ -56,7 +56,7 @@ class เพิ่มการกระโดด 3 แบบที่คนอ�
 2. **นอกนั้นค่าเริ่มต้นเป็น function** เรื่องเล่าคือฟังก์ชันตัวเดียว หรือ method ตัวเดียวที่ framework เรียก ข้อมูลส่งผ่าน argument และตัวแปร local
 3. **ใช้ class เมื่อมี state ที่ใช้ร่วมกันจริงเท่านั้น** เช่น context (user, คำขอหลัก) ที่หลาย entrypoint ใช้ร่วมกัน method ข้างในต้องทำตามกฎความลึก กำหนด `self.x` ได้เฉพาะใน `__init__` ห้ามกำหนดใน method หนึ่งเพื่อให้อีก method อ่าน
 4. **inheritance ของโปรเจกต์ไม่เกิน 1 ชั้นต่อเรื่องเล่า** base class ของ framework ไม่นับ mixin ที่เป็น public อยู่แล้วให้คงไว้ แต่ห้ามสร้าง mixin ใหม่
-5. **ห้ามแปลง class ที่เป็น public เป็น function หรือกลับกัน** แปลงได้เฉพาะของภายใน
+5. **ห้ามแปลง class ที่เป็น public เป็น function หรือกลับกัน** แปลงได้เฉพาะของภายใน ใน class ที่เป็น public การที่ method public ตัวหนึ่งเรียกอีกตัวคือพฤติกรรม เพราะ subclass อาจ override ตัวที่ถูกเรียก ให้คงการเรียกนั้นไว้ และ inline ได้เฉพาะ method private
 6. **hook ที่ framework เรียกเองต้องอยู่ในแผนที่หัวไฟล์** เช่น "DRF เรียก `get_queryset` → … → `get_serializer`"
 
 ภาษาที่ไม่มี class ใช้หลักเดียวกัน ใน Go ใช้ method บน struct เฉพาะเมื่อมี state จริง (client, config) และ embedding นับเป็น inheritance

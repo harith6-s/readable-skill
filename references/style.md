@@ -54,7 +54,7 @@ A class adds three jumps a reader cannot see as calls: walking inheritance and m
 2. **Otherwise default to functions.** The story is one function, or the one method the framework calls. Data moves through arguments and local variables.
 3. **A class only for real shared state**, such as a context (the user, the main request) that several entry points share. Its methods follow the depth rule. Set `self.x` only in `__init__`, never in one method for another method to read.
 4. **Project inheritance at most one level per story.** Framework base classes do not count. Keep existing public mixins, but never create new ones.
-5. **Never convert a public class to a function or back.** Convert internal ones only.
+5. **Never convert a public class to a function or back.** Convert internal ones only. In a public class, a call from one public method to another is behavior, because a subclass may override the method it calls. Keep those calls, and inline only private methods.
 6. **Framework hooks go into the header map**, for example "DRF calls `get_queryset` → … → `get_serializer`".
 
 Languages without classes follow the same idea. In Go, use methods on a struct only for real state (a client, a config). Embedding counts as inheritance.
