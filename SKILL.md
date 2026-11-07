@@ -53,6 +53,8 @@ Read the project's lint and CI configuration (for example ruff, pylint, flake8, 
 - split the story into step functions that are leaves. Some decisions then move into the steps, and the report must say so,
 - leave the configuration to a human.
 
+If a class that may be public passes state between its methods through `self`, its public methods cannot change, so the check on state through `self` cannot pass while it stays public. Say so at the gate and let the user choose. If they keep it public, the report lists it as a rule they chose to break.
+
 **Gate:** `<work>/map.md` exists, and the user has approved the units, the file and the `apply` of each, which top-level names nothing imports are public, and how to meet any enforced lint limit.
 
 ### 2. Clone
@@ -160,3 +162,5 @@ Version 1.x supports **Python only**. The scripts need Python 3.10 or newer (sta
 | "Remove the unused import" | It may be public surface. Check its usage first. |
 | "Nobody passes this argument, so I can drop the branch and pin it" | Keep the branch, with the argument as a local variable set to its default. A pin marks code, it does not replace it. |
 | "Let the user pick: copy the chunk into both stories, or one leaf" | Offer the rule first. Mark an option that breaks a rule `breaks rule N`. |
+| "Both entry points run the same steps, so one private story that takes the account or a flag" | Each entry point is its own story. Only a chunk that repeats whole becomes a leaf (rule 6), and a function that takes a flag is inlined into each caller. |
+| "The gate cannot be met, so offer to go on without it" | Stop and say why. Never offer a way around a gate, such as a V2 without parity. |
