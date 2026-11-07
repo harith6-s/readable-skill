@@ -1,0 +1,13 @@
+"""Step 3: cancel a paid order and refund it."""
+
+from shop import orders_store
+from shop.checkout_v2.shared import refund, release_all
+
+
+def cancel_order(order_id):
+    order = orders_store.load_order(order_id)
+    if order["status"] != "paid":
+        return {"ok": False, "reason": "not paid"}
+    orders_store.mark(order_id, "cancelling")
+    release_all({"items": order["lines"]})
+    return refund(order)

@@ -1,0 +1,10 @@
+{
+  "name": "clean",
+  "shape": "no-change",
+  "about": "Already readable: two public functions, one jump. The skill should say there is nothing to fix and propose no rewrite.",
+  "module": "notices.render",
+  "original": "notices/render.py",
+  "scenarios": ["scenarios.py"],
+  "allow": [],
+  "expect": "jump_depth --check passes on the original; the Map step proposes no moves and stops."
+}

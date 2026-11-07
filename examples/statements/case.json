@@ -1,0 +1,10 @@
+{
+  "name": "statements",
+  "shape": "refactor",
+  "about": "A class whose methods pass work through self.rows (set outside __init__, read in another method) and a subclass that overrides one step. Tests how the skill treats state across methods and one inheritance layer.",
+  "module": "ledger_app.importer",
+  "original": "ledger_app/importer.py",
+  "scenarios": ["scenarios.py"],
+  "allow": [],
+  "expect": "jump_depth reports state_across for self.rows and inheritance 1; a correct rewrite passes parity and --check."
+}

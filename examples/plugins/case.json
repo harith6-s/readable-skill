@@ -1,0 +1,10 @@
+{
+  "name": "plugins",
+  "shape": "list-by-hand",
+  "about": "The handler is picked by name at run time (getattr). A static map cannot see on_created or on_deleted.",
+  "module": "hooks.dispatch",
+  "original": "hooks/dispatch.py",
+  "scenarios": ["scenarios.py"],
+  "allow": [],
+  "expect": "The Map step lists the handlers by hand in map.md (the scripts cannot see them) and says so at the gate."
+}

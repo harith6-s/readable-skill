@@ -1,0 +1,10 @@
+{
+  "name": "async_jobs",
+  "shape": "unsupported",
+  "about": "An async def that awaits a client call. parity.py stubs are not awaitable, so a unit cannot be recorded (1.x).",
+  "module": "feeds.sync",
+  "original": "feeds/sync.py",
+  "scenarios": ["scenarios.py"],
+  "allow": [],
+  "expect": "The Map gate says await is unsupported in 1.x and stops. A future version that supports async flips this case to refactor."
+}

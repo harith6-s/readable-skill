@@ -1,0 +1,11 @@
+{
+  "name": "orders",
+  "shape": "refactor",
+  "about": "A flat checkout module: four steps of one flow, a helper chain two deep, three flags nobody passes, a chunk that repeats whole within one flow, pure helpers called from several steps.",
+  "module": "shop.checkout",
+  "original": "shop/checkout.py",
+  "scenarios": ["scenarios.py"],
+  "allow": [],
+  "tasks": [["preview_order"], ["place_order", "queue_place_order"], ["cancel_order"], ["retry_refund", "unlock_order"]],
+  "kept_branches": ["notify", "capture", "cc"]
+}
