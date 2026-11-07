@@ -34,7 +34,7 @@ Reshape **internal code only**: services, utilities, background job bodies. Fram
 
 A **unit** is the code of one task: the functions reachable from that task's entry points and used nowhere else. A helper that code outside the unit also uses is a **leaf**, like a library call. It can become a unit of its own later.
 
-The **public surface** is every name that production code outside the unit imports. Tests do not count.
+The **public surface** is every name that production code outside the unit imports. Tests do not count. A top-level name without a leading underscore that nothing in the repository imports may still be used from outside it: list such names at the Map gate and ask. If the user does not know, treat them as public.
 
 ## Mode `refactor`
 
@@ -53,7 +53,7 @@ Read the project's lint and CI configuration (for example ruff, pylint, flake8, 
 - split the story into step functions that are leaves. Some decisions then move into the steps, and the report must say so,
 - leave the configuration to a human.
 
-**Gate:** `<work>/map.md` exists, and the user has approved the units, the file and the `apply` of each, and how to meet any enforced lint limit.
+**Gate:** `<work>/map.md` exists, and the user has approved the units, the file and the `apply` of each, which top-level names nothing imports are public, and how to meet any enforced lint limit.
 
 ### 2. Clone
 
