@@ -80,12 +80,29 @@
 - ผลการทดสอบรอบที่ 1-4 สรุปไว้ใน `README.md` ข้อมูลดิบกับโค้ดที่ใช้ทดสอบเป็นของบริษัท จึงไม่อยู่ใน repo นี้และจะไม่มี
 - เพิ่มชุดทดสอบที่ไม่ขึ้นกับใคร (`tests/`, `examples/`, `eval/grade.py`) เมื่อ 2026-11-07 ตอนนี้มี 56 ข้อ ผ่านทั้งหมด ในนั้น 1 ข้อเป็น expected failure ที่ตั้งใจไว้
 - `parity.py` ปฏิเสธโค้ด async แล้ว (ส่วน 1.2 ใน `CHANGELOG.md`)
-- ยังไม่เคยให้ agent ใช้ skill กับ `examples/` เลย
+### agent กับ `examples/` รอบที่ 1 (2026-11-08, Sonnet, มี skill, แบบละ 1 run)
+
+ผ่านตาม `shape` ครบ 5 ตัว ผลดิบไม่ได้เก็บไว้ (อยู่ใน scratchpad ของ session) ไฟล์เดิมไม่ถูกแตะทุกตัว (ตรวจด้วย hash)
+
+| ตัวอย่าง | ผล | context ตอนจบ / เวลาทำงาน |
+|---|---|---|
+| `async_jobs` | หยุดที่ Map ก่อนเรียก `parity.py` (รันแค่ `jump_depth.py`) | 52k / 34 วิ |
+| `clean` | `--check` OK ไม่เสนอการย้าย แนะนำให้หยุด | 53k / 45 วิ |
+| `plugins` | ไล่ `on_created`/`on_deleted` ที่เรียกผ่าน `getattr` เองใน `map.md` และบอกที่ด่าน | 56k / 52 วิ |
+| `statements` | `grade.py` 7/7, 14 scenario, ทิ้ง class เป็น 2 ฟังก์ชัน, state ผ่าน `self` 1 → 0 | 76k / ~2.7 นาที |
+| `orders` | `grade.py` 9/9, 25 scenario, 4 งานตรงเฉลย, คงกิ่ง `notify`/`capture`/`cc` พร้อม PIN | 95k / ~4.8 นาที |
+
+- ผู้ดูแลรีวิวโค้ดของ `orders` และ `statements` แล้วอ่านออก (ชั้น "คนจริง" ของการวัด)
+- ที่ด่าน Map ผู้ทดสอบอนุมัติตามที่ agent เสนอโดยไม่แก้ให้ ตอบเฉพาะสิ่งที่ผู้ใช้จริงรู้ (worker ของคิวใน `orders` ตอบตาม `shop/api.py`)
+- **ข้อบกพร่องของวิธีวัด:** workdir ของทุก run อยู่ในโฟลเดอร์แม่เดียวกัน agent ของ `orders` จึง `ls` เห็นชื่อไฟล์ของ run อื่น (ไม่ได้อ่านเนื้อหา) รอบหน้าให้แยกโฟลเดอร์แม่ต่อ run
+- **กฎที่ต้องตัดสิน:** `statements` มีงานเดียว แต่ก้อนที่ซ้ำใน 2 ฟังก์ชันของไฟล์เดียวต้องไป `shared.py` ตามตาราง keep/inline/merge ของ `style.md` V2 จึงต้องเป็น package (`ledger_app.importer_v2.importer`) และคนอ่านกระโดดข้ามไฟล์เพิ่ม
+- `clean` ชี้ว่า docstring ไม่มี header map (กฎ 9) แต่ไม่เสนอแก้ ถูกต้องตาม SKILL.md (เสนอได้แค่สิ่งที่ `--check` บอก และกฎ 5-7)
+- ตัวเลข token ที่ harness ให้คือขนาด context ตอนจบ ไม่ใช่ token รวม และเวลานับรวมช่วงรอที่ด่าน (ตารางหักออกแล้ว) ยังไม่รู้ว่าตัวเลขรอบที่ 1-4 ใน `README.md` วัดแบบเดียวกันหรือไม่
 
 ## งานถัดไป (ตามลำดับที่ตกลงกัน)
 
-1. ให้ agent ใช้ skill กับ `examples/` ทั้ง 5 ตัว แล้วดูผลตาม `shape` ใน `case.json` ของแต่ละตัว (refactor ใช้ `eval/grade.py`, ตัวอื่นดูว่าหยุดหรือบอกตามที่ควร)
-2. งานที่เหลือของ 1.2: ปัญหาข้อ 1-9 และ 11-12, เฉลย (`golden/`) ของ `statements`, ชุดคำถามของ `orders`, อัปเดตส่วน "โครงสร้าง" ใน `README.md` ให้มี `tests/`, `examples/`, `eval/grade.py`
+1. agent กับ `examples/` รอบที่ 2: แบบมี skill ซ้ำ 5 run และ baseline (ไม่มี skill) 5 run แยกโฟลเดอร์แม่ต่อ run
+2. งานที่เหลือของ 1.2: ปัญหาข้อ 1-9 และ 11-12, เฉลย (`golden/`) ของ `statements` (ใช้ผลรอบที่ 1 ได้ แต่ต้องตัดสินกฎ `shared.py` ของงานเดียวก่อน), ชุดคำถามของ `orders`, อัปเดตส่วน "โครงสร้าง" ใน `README.md` ให้มี `tests/`, `examples/`, `eval/grade.py`
 3. เข้า `main` และติด tag `v1.1` เมื่อผู้ดูแลพอใจ
 
 ## รันทดสอบ
@@ -100,8 +117,11 @@ python3 -m unittest discover -s tests
 
 ## ทดสอบ skill กับ agent
 
-1. `python3 eval/prepare.py <example> <workdir>` ให้ workdir อยู่นอก repo หรือในโฟลเดอร์ที่ ignore ไว้
+1. `python3 eval/prepare.py <example> <workdir>` ให้ workdir อยู่นอก repo หรือในโฟลเดอร์ที่ ignore ไว้ และให้แต่ละ run มีโฟลเดอร์แม่ของตัวเอง
 2. เปิด subagent ใหม่ที่เริ่มจากศูนย์ (general-purpose ไม่ใช่ fork เพราะ fork จะได้บทสนทนาไปด้วย) สั่งให้อ่าน `SKILL.md` เองเพราะ skill ไม่ทำงานอัตโนมัติ แล้วให้ทำงานใน workdir โดยเพิ่มไฟล์ใหม่ และห้ามแก้ไฟล์ที่มีอยู่
+   - คัดลอกแค่ `SKILL.md`, `references/`, `scripts/` ไปไว้ที่อื่น agent จะได้ไม่เห็น `case.json`, `golden/` และไฟล์นี้
+   - ส่ง `work=` ที่อยู่นอก workdir เพราะ `grade.py` นับไฟล์ `.py` ใหม่ทุกไฟล์ใน workdir เป็นผลงาน รวมถึง `scenarios.py`
+   - prompt เดียวกันทุกตัวอย่าง ต่างกันแค่ target และสั่งให้จบ turn ที่ทุกด่าน แล้วตอบด่านด้วย SendMessage
 3. `python3 eval/grade.py <example> <workdir> --json <workdir>/grading.json`
 4. รัน baseline (สั่งงานเดียวกันแต่ไม่มี skill) เพื่อเทียบ แล้วเก็บ token กับเวลาของทุก run
 5. ทุกแบบควรรันมากกว่า 1 ครั้งก่อนสรุป (ปัญหาข้อ 6 ใน CHANGELOG)
