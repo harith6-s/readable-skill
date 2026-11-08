@@ -81,12 +81,12 @@ Do not overturn any of these without asking the maintainer first.
 18. **In a public class, never inline a public method.** A call from one public method to another is behavior, because a subclass may override the method that is called. Parity cannot see it, because no such subclass exists in the repo. Only private methods may be inlined (maintainer decision 2026-11-08, after round 5).
 19. **Everything written in the repo is in English** (maintainer decision 2026-11-08): the skill, the scripts, the tests, the examples and every document. The Thai translations (`th/`) were removed. Presenter notes in `doc/` are not part of the repo (`doc/` is in `.gitignore`). A string literal that is sample data, such as the Thai text in `examples/clean`, may stay.
 
-## Status (1.1 released; 1.2 in progress, 2026-11-08)
+## Status (1.2, 2026-11-08)
 
 - The results of test rounds 1-4 are summarized in `README.md`. The raw data and the code used for the tests belong to a company, so they are not in this repo and never will be.
-- A test set that depends on nobody (`tests/`, `examples/`, `eval/grade.py`) was added on 2026-11-07. It now has 61 tests. All pass, and 1 of them is an expected failure that is intentional.
+- A test set that depends on nobody (`tests/`, `examples/`, `eval/grade.py`) was added on 2026-11-07. It now has 65 tests. All pass, and 1 of them is an expected failure that is intentional.
 - `parity.py` refuses async code now (the 1.2 section of `CHANGELOG.md`).
-- Until 2026-11-08 `references/python.md` was in Thai, so the agent rounds below read the Thai version of it. It is now in English with the same content, but no agent run has used the English version yet.
+- Until 2026-11-08 `references/python.md` was in Thai, so the agent rounds 1-5 below read the Thai version of it. It is now in English with the same content, and round 6 is the first run that read it (`orders`, 11/11).
 
 ### Agents on `examples/`, round 1 (2026-11-08, Sonnet, with the skill, one run each)
 
@@ -177,10 +177,24 @@ Tested the rules after round 4. The tester answered about public names as in rou
 - The rules after round 4 worked: no central story that takes a flag, and the state-through-`self` problem of a class that may be public was called out at the Map gate.
 - A new finding: A kept the class but inlined `load`/`validate`/`post` into `run` and left the old methods in place with no caller. A subclass outside the repo that overrides one of them would no longer be called (parity cannot see it), and the old chunk now exists twice. The agent pinned it and asked about it itself. The maintainer decided it as decision 18.
 
+### Agents on `examples/`, round 6 (2026-11-08, Sonnet, with the skill, one run each of `orders` and `statements`)
+
+Tested the English `references/python.md` (on `orders`) and decision 18 (on `statements`, with the answer "I don't know" and the choice to keep the classes public).
+
+| Run | Result | Context at the end / working time |
+|---|---|---|
+| `orders` | 11/11, refund as the leaf `refund_payment`, 33 scenarios; the agent opened the English `python.md` once | 103k / 5.1 min |
+| `statements` ("I don't know", classes kept) | 6/8: checks 04 (depth) and 12 (state through `self`) failed, as chosen at the gate. All 9 functions kept, no public method inlined, and a scenario with a subclass that overrides `parse_row` and `validate` confirmed `run` still calls them through `self` | 73k / 2.6 min |
+
+- Decision 18 worked: the public methods were kept and the report listed the two broken rules. The V2 for this answer is the original plus a header map and step headings, so it gives almost no readability gain. That is the honest result of "unknown means public".
+- **A gap in `style.md` found by `orders`:** the agent first proposed keeping the status strings as literals, because it read "`shared.py` holds only leaves" as forbidding constants there. The tester answered that constants are not functions and may live in `shared.py`; the agent then named them. `style.md` should say where constants live (maintainer to confirm; not changed yet).
+- A friction note from `orders`: step 2 (Clone) does not say where the copy of a unit that becomes a package lives. The agent put the verbatim copy in the file that would later hold the rewrite and overwrote it. It worked, but the skill could say it.
+- The golden answer of `statements` (`examples/statements/golden/`) was written by hand for the answer "nobody outside uses the classes": one file, two stories, a leaf at the end. It passes 8/8 and has its own tests in `tests/test_grade.py`.
+
 ## Next tasks (in the agreed order)
 
-1. What is left of 1.2: known problems 1-9 and 11-12; the golden answer (`golden/`) of `statements` (the round-3 result is one file now, and which version to use depends on the answer about public names at the Map gate); a question set for `orders`; update the "Structure" section of `README.md` to include `tests/`, `examples/`, `eval/grade.py`; run one agent on `statements` to test decision 18 and one with the English `references/python.md`.
-2. Merge into `main` and tag `v1.1` when the maintainer is satisfied.
+1. What is left of 1.2: known problems 1-9 and 11-12; a question set for `orders`. Decide the two small `style.md` gaps from round 6 (where constants live, where the copy of a package lives at the Clone step). The maintainer has not yet reviewed the code of rounds 2-6 or the fixed `orders` golden answer.
+2. Merge into `main` and tag `v1.2` when the maintainer is satisfied (there is no `v1.0` or `v1.1` tag yet; tag them on their commits first if you want the history marked).
 
 ## Running the tests
 

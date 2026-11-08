@@ -119,6 +119,51 @@ class Golden(unittest.TestCase):
         self.assertIn("03", failing)
 
 
+class GoldenStatements(unittest.TestCase):
+    """The same idea for `statements`: a one-file V2 beside the original, so it also covers the `targets()` rule."""
+
+    FILE = "ledger_app/importer_v2.py"
+
+    def graded(self, mutate=None):
+        temp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp, ignore_errors=True)
+        work = prepare.prepare("statements", temp / "work")
+        shutil.copy(EXAMPLES / "statements" / "golden" / self.FILE, work / self.FILE)
+        if mutate:
+            path = work / self.FILE
+            path.write_text(mutate(path.read_text()))
+        return {item["text"][:2]: item for item in grade.grade("statements", work, SCRIPTS)}
+
+    def failing(self, mutate):
+        return sorted(key for key, item in self.graded(mutate).items() if not item["passed"])
+
+    def replace(self, old, new):
+        def mutate(text):
+            self.assertIn(old, text, "mutation does not apply")
+            return text.replace(old, new, 1)
+        return mutate
+
+    def test_the_correct_one_file_rewrite_passes_everything(self):
+        results = self.graded()
+        self.assertEqual(sorted(results), ["01", "02", "03", "04", "07", "08", "09", "12"])
+        self.assertEqual([key for key, item in results.items() if not item["passed"]], [])
+
+    def test_a_flipped_sign_fails_parity_only(self):
+        self.assertEqual(self.failing(self.replace('"amount": -float(amount)', '"amount": float(amount)')), ["01"])
+
+    def test_a_class_that_passes_state_through_self_fails_that_check_only(self):
+        extra = "\n\nclass _Basket:\n    def fill(self, items):\n        self.lines = list(items)\n\n    def count(self):\n        return len(self.lines)\n"
+        self.assertEqual(self.failing(lambda text: text + extra), ["12"])
+
+    def test_a_leaf_above_its_callers_fails_layout_only(self):
+        def mutate(text):
+            start = text.index("def _drop_zero_rows")
+            leaf, rest = text[start:], text[:start]
+            head, tail = rest.split("def import_bank_statement", 1)
+            return head + leaf.rstrip("\n") + "\n\n\ndef import_bank_statement" + tail
+        self.assertEqual(self.failing(mutate), ["07"])
+
+
 class Pieces(unittest.TestCase):
     def test_check_tasks_accepts_one_file_per_task(self):
         where = {"a": "a.py", "b": "a.py", "c": "c.py"}

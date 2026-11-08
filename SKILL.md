@@ -4,7 +4,7 @@ description: Use when working Python code is hard to follow because a reader mus
 disable-model-invocation: true
 argument-hint: "mode=new|refactor|migrate <target> [apply=v2|replace] [out=<path>] [work=<folder>] [layout=A|B|AB] [depth=1-3] [style=auto|function|class]"
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Readable

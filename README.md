@@ -2,7 +2,7 @@
 
 > An Agent Skill for Claude Code that arranges the code of one task (a request, a background job, a command) so it reads top to bottom in one place, without changing its behavior. It works both when reshaping existing code (refactor) and when writing a new feature.
 
-**Version 1.1** · Python 3.10 or newer · tested on Django projects · the scripts use only the standard library
+**Version 1.2** · Python 3.10 or newer · tested on Django projects · the scripts use only the standard library
 
 ## What problem it solves
 
@@ -52,8 +52,13 @@ readable/
 │   └── parity.py         stubs everything outside the unit, then records and compares behavior (record, diff, coverage)
 ├── eval/
 │   ├── reader.py         the budget-limited reader, to measure whether the code really became easier to read
-│   └── reader_prompt.md  the prompt of the AI reader
+│   ├── reader_prompt.md  the prompt of the AI reader
+│   ├── prepare.py        makes a working copy of an example for one agent run
+│   └── grade.py          grades one run with mechanical checks (parity, depth, layout, rules 6 and 7, ...)
+├── examples/             5 made-up Python projects of different shapes, with the answer (golden/) for 2 of them
+├── tests/                tests of the scripts and of the grader (python3 -m unittest discover -s tests)
 ├── CHANGELOG.md
+├── DEVELOPING.md         for whoever keeps developing the skill: decisions already made, test rounds, next tasks
 └── README.md
 ```
 

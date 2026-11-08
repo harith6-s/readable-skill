@@ -6,5 +6,6 @@
   "original": "ledger_app/importer.py",
   "scenarios": ["scenarios.py"],
   "allow": [],
-  "expect": "jump_depth reports state_across for self.rows and inheritance 1; a correct rewrite passes parity and --check."
+  "tasks": [["import_bank_statement", "import_card_statement"]],
+  "expect": "jump_depth reports state_across for self.rows and inheritance 1; a correct rewrite passes parity and --check. golden/ is the answer for \"nobody outside the repository uses the classes\": one file, two stories, no classes."
 }

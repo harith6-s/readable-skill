@@ -5,7 +5,7 @@ The version is in `metadata.version` of `SKILL.md`. Every version must pass the 
 - **1.x** = fixes and improvements where the input and the steps stay the same
 - **2.0** = changes to the input, the modes or the gates (people who call the skill must change how they call it)
 
-## 1.2 (not released)
+## 1.2 (2026-11-08)
 
 - **`parity.py record` refuses async code (known problem 10):** if any file of the unit contains `async def`, it exits 1, names the `file:line` of each one, and writes no recording. It no longer depends on the AI stopping at the Map step by itself. Supporting async is still known problem 7. The test pair in `tests/test_parity.py` has been swapped, and `tests/test_examples.py` checks that `async_jobs` is refused.
 - **A leaf whose callers are all in one file sits at the end of that file (maintainer decision, 2026-11-08):** `style.md` and `jump_depth.py --check` used to send a helper with two or more callers to `shared.py` even when all the callers were in the same file. So `statements`, a one-task unit, became a package in both rounds. Now `shared.py` holds only leaves that are called from two or more files, which matches the original layout A decision. `--check` verifies that such a leaf sits below all its callers and that only leaves of the same kind follow it.
@@ -14,6 +14,7 @@ The version is in `metadata.version` of `SKILL.md`. Every version must pass the 
 - **Names that nothing imports (maintainer decision, 2026-11-08):** a top-level name without a leading underscore that nothing in the repository imports must be listed at the Map gate, and the user is asked whether anyone outside the repository uses it. If the user does not know, it counts as public (in round 3 the two `statements` runs read this in opposite ways: drop the classes, or keep them).
 - **After round 4 (maintainer decision, 2026-11-08):** a class that may be public and passes state between its methods through `self` must be called out at the Map gate, saying that check will not pass (in round 4 the agent only learned it at Verify). Added two red-flag rows: each entry point is its own story, never move the whole story into a central function that takes a value or a flag; and never offer a way around a gate, such as a V2 without parity.
 - **After round 5 (maintainer decision, 2026-11-08):** in a public class, a call from one public method to another is behavior (a subclass may override the method). Never inline a public method; only private methods may be inlined. The Map step also says the depth of such a class may stay above 1 (in round 5 the agent inlined `load`/`validate`/`post` into `run` of a class counted as public).
+- **Round 6 (2026-11-08):** the English `references/python.md` was read by an agent for the first time (`orders`, 11/11), and decision 18 held (`statements` with unknown outside use kept every public method). The golden answer of `statements` was added for the answer "nobody outside uses the classes". `README.md` structure section now lists `tests/`, `examples/`, `eval/` and `DEVELOPING.md`, and the skill is now version 1.2.
 - **Cause of known problem 4:** Claude Code does not let a subagent write a report file with the Write tool. This happens only when the skill runs as a subagent. The existing fallback (put the report in the final message) is correct, so the skill is unchanged.
 - **`eval/grade.py`:** added checks 12 (state through `self`, inheritance), 13 (rule 6, repeated chunks) and 14 (rule 7, status codes), and fixed `targets()`, which scanned the whole old package when the V2 was a single file. The `orders` golden answer was fixed to follow rules 3, 6 and 7.
 - **All documentation is in English (maintainer decision, 2026-11-08):** removed `th/` (the Thai translations of `SKILL.md` and `style.md`) and translated `README.md`, `CHANGELOG.md`, `DEVELOPING.md`, the folder READMEs and `references/python.md` into English. Note for the evidence: every test round up to now ran with the Thai version of `references/python.md` and the English `SKILL.md` and `style.md`. The English `python.md` has the same content but was not tested by an agent run.
@@ -53,6 +54,9 @@ Fixes for the known problems of 1.0 and for the maintainer's code review (2026-1
 11. `getattr(stubbed_module, name, None)` never returns `None`, so the "not found" branch cannot be tested with parity (`tests/test_parity.py` KnownLimits).
 12. A Django-style `tests.py` counts as a production caller, because `is_test_file` knows only `test_*.py`, `*_test.py` and the `tests/` folder (`tests/test_jump_depth.py` KnownLimits).
 13. For code that calls by name at run time, the map cannot see what is called, so `--check` says OK. The skill already says to trace those by hand in `map.md` (`tests/test_examples.py`).
+14. `style.md` does not say where constants (status codes) live. In round 6 an agent read "`shared.py` holds only leaves" as forbidding them there and proposed literals. The tester ruled that constants may live in `shared.py`; the text is not changed yet.
+15. Step 2 (Clone) does not say where the copy of a unit that becomes a package lives (round 6, `orders`).
+16. `eval/grade.py` does not check rule 1 (the entry point is the story) or decision 18 (never inline a public method of a public class).
 
 ## 1.0 (2026-11-06)
 
