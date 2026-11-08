@@ -1,13 +1,8 @@
-"""Leaves called from more than one task file, and the order status codes. None of the functions calls another."""
+"""Leaves called from more than one task file. None of them calls another."""
 
 from shop import inventory
 from shop.config import FREE_SHIPPING_OVER, GATEWAY_URL, SHIPPING_FEE, TAX_RATE
 from shop.payments import Gateway, GatewayError
-
-PAID = "paid"
-CANCELLING = "cancelling"
-CANCELLED = "cancelled"
-REFUND_FAILED = "refund_failed"
 
 
 def money(value):

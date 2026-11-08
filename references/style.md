@@ -28,7 +28,7 @@ A reader follows one request or task from its entry point to its end, top to bot
 4. **Payloads are visible whole.** Every payload sent outside (HTTP, PDF, queue, email) is one literal at the call site, readable down to `depth` levels (default 3). Parts deeper than that may be named variables just above the literal. Never assemble a payload with `**` from several functions, and keep the key order.
 5. **Long conditions become named variables** above the literal, not new functions.
 6. **No duplicated logic, judged by chunks, not lines.** A chunk that does one piece of work on its own, such as calling a service and mapping its error codes, and repeats whole in two or more places becomes one leaf helper. A small expression that happens to match inside otherwise different code is not a duplicate. Merge only the part that behaves the same: compare the copies line by line, keep what differs at each caller or pass it in as an argument, and pin a difference that looks accidental (`PIN(behavior)`). Never unify it. The merged leaf returns a result, and the story raises (rule 3). Payloads that only look alike are not merged (rule 4).
-7. **Constants and status or step codes** have one name in one place. Never inline them as literals.
+7. **Constants and status or step codes** have one name in one place. Never inline them as literals. When the V2 has several files, that place is `constants.py` (see File layout). A unit that stays one file keeps them at the top of that file.
 8. **Imports at the top**, except an import that breaks a circular import. Keep that one where it is, with a one-line reason.
 9. **Header map.** Every story file starts with a short docstring: its entry points, the steps of each, and the outbound calls in order. Name the hooks the framework calls by itself, because a reader cannot see those calls.
 10. **Visibility.** Everything outside the public surface is private by the language's own mechanism: Python `_name`, TypeScript no `export`, Go lower case. When refactoring this is the only rename allowed.
@@ -41,6 +41,7 @@ A reader follows one request or task from its entry point to its end, top to bot
 
 In every layout:
 - **`shared.py`**, one per package, holds the leaves that two or more files call. Its functions never call each other, so a reader who jumps there lands on code with nothing behind it. Other languages use the same name (`shared.ts`, `shared.go`).
+- **`constants.py`**, one per package, holds every constant and every status or step code of the unit, each defined once. It holds no functions and imports no project code, so a reader who opens it finds only names and values. Task files and `shared.py` import from it. A unit that stays one file keeps its constants at the top of that file.
 - **Short does not mean shared.** A function that decides (raises, picks the next step, writes) is a story and lives in its task file, however short it is. `shared.py` holds only leaves.
 - **No facade.** `__init__.py` (or `index.ts`) holds no code and re-exports nothing. Callers import each name from its own file, so "go to definition" lands on the code.
 - **Split only to cut jumps.** Giving each task its own file cuts what a reader must skip. Splitting one task across files adds jumps: do it only for the product builders of `B` and `AB`.

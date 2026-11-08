@@ -1,7 +1,8 @@
 """Repair actions: retry a failed refund, unlock an order."""
 
 from shop import audit, orders_store
-from shop.checkout_v2.shared import CANCELLED, PAID, REFUND_FAILED, money, refund_payment
+from shop.checkout_v2.constants import CANCELLED, PAID, REFUND_FAILED
+from shop.checkout_v2.shared import money, refund_payment
 
 
 def retry_refund(order_id):

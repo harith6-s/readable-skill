@@ -1,7 +1,8 @@
 """Step 3: cancel a paid order and refund it."""
 
 from shop import audit, orders_store
-from shop.checkout_v2.shared import CANCELLED, CANCELLING, PAID, REFUND_FAILED, money, refund_payment, release_all
+from shop.checkout_v2.constants import CANCELLED, CANCELLING, PAID, REFUND_FAILED
+from shop.checkout_v2.shared import money, refund_payment, release_all
 
 
 def cancel_order(order_id):

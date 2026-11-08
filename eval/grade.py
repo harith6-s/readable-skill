@@ -18,7 +18,7 @@ READABLE_SCRIPTS environment variable, else ../scripts next to this folder). Exi
 13 each chunk that repeated whole is written in one function only (style rule 6, cases that list a marker of each:
    ".name" is a method or attribute, any other marker a name)
 14 status codes are named constants, each defined once and never written as a literal elsewhere (style rule 7, cases
-   that list them)
+   that list them); when the run made several files, they are defined in constants.py
 """
 
 import argparse
@@ -127,7 +127,8 @@ def uses(files, marker):
 
 
 def inline_codes(files, codes):
-    """Codes written as literals anywhere but as the value of their ALL_CAPS constant, and codes defined twice."""
+    """Codes written as literals anywhere but as the value of their ALL_CAPS constant, codes defined twice, and, when
+    the run made several files, codes defined anywhere but in constants.py."""
     literals, defined = [], []
     for path in files:
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -137,10 +138,13 @@ def inline_codes(files, codes):
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in codes:
                 if id(node) in named:
-                    defined.append(node.value)
+                    defined.append((node.value, path.name))
                 else:
                     literals.append(f"{path.name}:{node.lineno} {node.value!r}")
-    return literals, sorted({code for code in defined if defined.count(code) > 1})
+    names = [code for code, _ in defined]
+    twice = sorted({code for code in names if names.count(code) > 1})
+    elsewhere = sorted({f"{code!r} in {name}" for code, name in defined if name != "constants.py"}) if len(files) > 1 else []
+    return literals, twice, elsewhere
 
 
 def importing(files, module):
@@ -259,9 +263,9 @@ def grade(example, workdir, scripts):
 
     # 14 codes are named constants
     if case.get("codes"):
-        literals, twice = inline_codes(files, case["codes"])
-        results.append(expectation("14 codes are named constants", not literals and not twice,
-                                   f"literals {literals[:6]}; defined twice {twice}"))
+        literals, twice, elsewhere = inline_codes(files, case["codes"])
+        results.append(expectation("14 codes are named constants", not literals and not twice and not elsewhere,
+                                   f"literals {literals[:6]}; defined twice {twice}; not in constants.py {elsewhere}"))
     return results
 
 

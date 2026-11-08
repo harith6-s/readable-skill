@@ -59,7 +59,7 @@ If a class that may be public passes state between its methods through `self`, i
 
 ### 2. Clone
 
-- `v2`: copy the original to the V2 location. Put `_v2` once, on the outermost thing copied: a folder → `utils_v2/`, a file → `doc_v2.py`, a file that becomes several task files → a package `doc_v2/`, a function or a class → `build_preview_v2`. Names inside keep their original names. The V2 must not import anything from the old code.
+- `v2`: copy the original to the V2 location. Put `_v2` once, on the outermost thing copied: a folder → `utils_v2/`, a file → `doc_v2.py`, a file that becomes several task files → a package `doc_v2/`, a function or a class → `build_preview_v2`. Names inside keep their original names. The V2 must not import anything from the old code. When the V2 will be a package, keep the unchanged copy used for the harness check in `<work>/clone/`, loaded under the original module name with `--unit <work>/clone/<file>=<original module>`. It is not part of the V2.
 - `replace`: also copy the original byte for byte to `<work>/before/` and record its hash. Never edit that copy.
 
 **Gate:** the copy imports.

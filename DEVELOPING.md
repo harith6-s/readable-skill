@@ -80,6 +80,8 @@ Do not overturn any of these without asking the maintainer first.
 17. **Each entry point is its own story,** even when two entry points do the same steps and differ only in values. Never move the whole story into a central function that takes a value or a flag. Only a chunk that repeats whole becomes a leaf, by rule 6 (maintainer decision 2026-11-08).
 18. **In a public class, never inline a public method.** A call from one public method to another is behavior, because a subclass may override the method that is called. Parity cannot see it, because no such subclass exists in the repo. Only private methods may be inlined (maintainer decision 2026-11-08, after round 5).
 19. **Everything written in the repo is in English** (maintainer decision 2026-11-08): the skill, the scripts, the tests, the examples and every document. The Thai translations (`th/`) were removed. Presenter notes in `doc/` are not part of the repo (`doc/` is in `.gitignore`). A string literal that is sample data, such as the Thai text in `examples/clean`, may stay.
+20. **Constants and status codes live in `constants.py`** when the V2 has several files: one per package, every constant defined once, no functions and no project imports. A unit that stays one file keeps its constants at the top of that file (maintainer decision 2026-11-08, after round 6; the maintainer chose "a dedicated file for every constant" and the one-file exception is my reading, to be confirmed). `grade.py` check 14 enforces it for runs that made several files; `jump_depth.py --check` does not.
+21. **At the Clone step of a V2 that will be a package, the unchanged copy used for the harness check lives in `<work>/clone/`,** loaded under the original module name, and is not part of the V2 (maintainer decision 2026-11-08).
 
 ## Status (1.2, 2026-11-08)
 
@@ -187,13 +189,13 @@ Tested the English `references/python.md` (on `orders`) and decision 18 (on `sta
 | `statements` ("I don't know", classes kept) | 6/8: checks 04 (depth) and 12 (state through `self`) failed, as chosen at the gate. All 9 functions kept, no public method inlined, and a scenario with a subclass that overrides `parse_row` and `validate` confirmed `run` still calls them through `self` | 73k / 2.6 min |
 
 - Decision 18 worked: the public methods were kept and the report listed the two broken rules. The V2 for this answer is the original plus a header map and step headings, so it gives almost no readability gain. That is the honest result of "unknown means public".
-- **A gap in `style.md` found by `orders`:** the agent first proposed keeping the status strings as literals, because it read "`shared.py` holds only leaves" as forbidding constants there. The tester answered that constants are not functions and may live in `shared.py`; the agent then named them. `style.md` should say where constants live (maintainer to confirm; not changed yet).
-- A friction note from `orders`: step 2 (Clone) does not say where the copy of a unit that becomes a package lives. The agent put the verbatim copy in the file that would later hold the rewrite and overwrote it. It worked, but the skill could say it.
+- **A gap in `style.md` found by `orders`:** the agent first proposed keeping the status strings as literals, because it read "`shared.py` holds only leaves" as forbidding constants there. The maintainer decided (decision 20) that constants get their own `constants.py`; `style.md`, the `orders` golden answer and `grade.py` check 14 now follow it.
+- A friction note from `orders`: step 2 (Clone) did not say where the copy of a unit that becomes a package lives. The maintainer decided (decision 21): in `<work>/clone/`, outside the V2. `SKILL.md` now says so.
 - The golden answer of `statements` (`examples/statements/golden/`) was written by hand for the answer "nobody outside uses the classes": one file, two stories, a leaf at the end. It passes 8/8 and has its own tests in `tests/test_grade.py`.
 
 ## Next tasks (in the agreed order)
 
-1. What is left of 1.2: known problems 1-9 and 11-12; a question set for `orders`. Decide the two small `style.md` gaps from round 6 (where constants live, where the copy of a package lives at the Clone step). The maintainer has not yet reviewed the code of rounds 2-6 or the fixed `orders` golden answer.
+1. What is left of 1.2: known problems 1-9 and 11-12; a question set for `orders`. Confirm the one-file exception of decision 20, and run an agent on `orders` to see whether it now puts the status codes in `constants.py` and the Clone copy in `<work>/clone/` (both rules are new and untested). The maintainer has not yet reviewed the code of rounds 2-6 or the fixed `orders` golden answer.
 2. Merge into `main` and tag `v1.2` when the maintainer is satisfied (there is no `v1.0` or `v1.1` tag yet; tag them on their commits first if you want the history marked).
 
 ## Running the tests

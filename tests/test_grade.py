@@ -113,6 +113,15 @@ class Golden(unittest.TestCase):
                            'orders_store.mark(order_id, "cancelling")')
         self.assertEqual(self.failing(mutate), ["14"])
 
+    def test_a_status_code_defined_outside_constants_py_fails_the_codes_check_only(self):
+        def mutate(work):
+            package = work / PACKAGE
+            constants = (package / "constants.py").read_text()
+            shared = (package / "shared.py").read_text()
+            (package / "shared.py").write_text(shared + "\n\n" + constants.split('"""\n', 1)[1])
+            (package / "constants.py").write_text("from shop.checkout_v2.shared import CANCELLED, CANCELLING, PAID, REFUND_FAILED\n")
+        self.assertEqual(self.failing(mutate), ["14"])
+
     def test_a_missing_public_name_fails_surface_check(self):
         mutate = self.edit("repair_order.py", "def unlock_order(order_id):", "def unlock_the_order(order_id):")
         failing = self.failing(mutate)

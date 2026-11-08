@@ -1,7 +1,8 @@
 """Step 2: reserve stock, charge, save the order and send the receipt (and the entry point that queues it)."""
 
 from shop import audit, inventory, mailer, orders_store, queue
-from shop.checkout_v2.shared import PAID, cart_totals, money, release_all
+from shop.checkout_v2.constants import PAID
+from shop.checkout_v2.shared import cart_totals, money, release_all
 from shop.config import GATEWAY_URL, RECEIPT_SENDER
 from shop.payments import Gateway, GatewayError
 
