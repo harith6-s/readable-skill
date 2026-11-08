@@ -193,9 +193,19 @@ Tested the English `references/python.md` (on `orders`) and decision 18 (on `sta
 - A friction note from `orders`: step 2 (Clone) did not say where the copy of a unit that becomes a package lives. The maintainer decided (decision 21): in `<work>/clone/`, outside the V2. `SKILL.md` now says so.
 - The golden answer of `statements` (`examples/statements/golden/`) was written by hand for the answer "nobody outside uses the classes": one file, two stories, a leaf at the end. It passes 8/8 and has its own tests in `tests/test_grade.py`.
 
+### Agents on `examples/`, round 7 (2026-11-08, Sonnet, with the skill, one run of `orders`)
+
+Tested decisions 20 and 21 (`constants.py`, and the Clone copy in `<work>/clone/`).
+
+| Run | Result | Context at the end / working time |
+|---|---|---|
+| `orders` | 11/11 with the stricter check 14: status codes, the queue task name and the twice-used reason are in `constants.py`; the unchanged copy is in `work/clone/checkout.py`; the identical `_order_lines`/`_receipt_lines` are merged (after the tester asked for it; the agent had first proposed inlining both) | 103k / 5.3 min |
+
+- Both new rules were followed without prompting. The only correction the tester made was the duplicate-lines merge (rule 6), which the agent had first planned to leave as two copies.
+
 ## Next tasks (in the agreed order)
 
-1. What is left of 1.2: known problems 1-9 and 11-12; a question set for `orders`. Confirm the one-file exception of decision 20, and run an agent on `orders` to see whether it now puts the status codes in `constants.py` and the Clone copy in `<work>/clone/` (both rules are new and untested). The maintainer has not yet reviewed the code of rounds 2-6 or the fixed `orders` golden answer.
+1. What is left of 1.2: known problems 1-9 and 11-12; a question set for `orders`. The maintainer has not yet reviewed the code of rounds 2-6 or the fixed `orders` golden answer.
 2. Merge into `main` and tag `v1.2` when the maintainer is satisfied (there is no `v1.0` or `v1.1` tag yet; tag them on their commits first if you want the history marked).
 
 ## Running the tests

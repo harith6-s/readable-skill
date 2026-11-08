@@ -57,7 +57,7 @@ Fixes for the known problems of 1.0 and for the maintainer's code review (2026-1
 13. For code that calls by name at run time, the map cannot see what is called, so `--check` says OK. The skill already says to trace those by hand in `map.md` (`tests/test_examples.py`).
 14. **(Fixed in 1.2)** `style.md` did not say where constants (status codes) live. In round 6 an agent read "`shared.py` holds only leaves" as forbidding them there and proposed literals. Constants now live in `constants.py` (decision 20).
 15. **(Fixed in 1.2)** Step 2 (Clone) did not say where the copy of a unit that becomes a package lives. It is now `<work>/clone/` (decision 21).
-17. The new `constants.py` and `<work>/clone/` rules have not been run by an agent yet, and `jump_depth.py --check` does not check where constants live (only `grade.py` check 14 does).
+17. `jump_depth.py --check` does not check where constants live (only `grade.py` check 14 does). The `constants.py` and `<work>/clone/` rules were followed by one agent run (round 7, `orders`, 11/11) and not yet by a run on a unit with several files and classes.
 16. `eval/grade.py` does not check rule 1 (the entry point is the story) or decision 18 (never inline a public method of a public class).
 
 ## 1.0 (2026-11-06)
